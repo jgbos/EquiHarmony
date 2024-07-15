@@ -14,7 +14,7 @@ class HarmonicFunction(nn.Module):
         """Generate the basis functions for the pre-defined grid coordinates."""
 
     @abstractmethod
-    def evaluate(self, w: torch.Tensor, coords: torch.Tensor = None) -> torch.Tensor:
+    def forward(self, w: torch.Tensor, coords: torch.Tensor = None) -> torch.Tensor:
         """
         Evaluate the function using the provided coefficients. Compute on the coordinates
         provided otherwise uses the pre-defined grid coordinates.

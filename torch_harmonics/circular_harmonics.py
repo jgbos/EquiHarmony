@@ -38,7 +38,7 @@ class CircularHarmonics(HarmonicFunction):
 
         return torch.stack(basis_fns).permute(1, 0, 2).float().squeeze().permute(1, 0)
 
-    def evaluate(self, w: torch.Tensor, coords: torch.Tensor = None) -> torch.Tensor:
+    def forward(self, w: torch.Tensor, coords: torch.Tensor = None) -> torch.Tensor:
         if coords is not None:
             basis_fns = self.generate_basis_fns(coords).permute(1, 0)
             num_basis_fns = self.L * 2 + 1

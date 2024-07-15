@@ -17,7 +17,7 @@ def get_k(k_max: int) -> torch.Tensor:
     return torch.arange(k_max + 1)[1:]
 
 
-def get_m(num_l: int) -> torch.Tensor:
+def get_l(num_l: int) -> torch.Tensor:
     """Returns l for the 1D angular polar components.
 
     Args:
@@ -37,7 +37,7 @@ def get_zkl(xkl: torch.Tensor, r_max: float) -> torch.Tensor:
     return xkl / r_max
 
 
-def get_Nnm_zero(m: int, xkl: torch.Tensor, r_max: float) -> torch.Tensor:
+def get_Nkl_zero(l: int, xkl: torch.Tensor, r_max: float) -> torch.Tensor:
     """Returns the normalization constant for zero-value boundaries.
 
     Args:
@@ -48,73 +48,74 @@ def get_Nnm_zero(m: int, xkl: torch.Tensor, r_max: float) -> torch.Tensor:
     Nkl = (r_max**2.0 / 2.0) * torch.from_numpy(
         bessel.get_Jm(l + 1, xkl.numpy())
     ) ** 2.0
-    return Nnm
+    return Nkl
 
 
-def get_Nnm_deri(m: int, xnm: torch.Tensor, Rmax: float) -> torch.Tensor:
+def get_Nkl_deri(l: int, xkl: torch.Tensor, Rmax: float) -> torch.Tensor:
     """Returns the normalization constant for derivative boundaries.
 
     Args:
-        m - Order
-        xnm - Location of zeros for derivative boundaries.
+        l - Order
+        xkl - Location of zeros for derivative boundaries.
         Rmax - Maximum radius.
     """
     return (
         (Rmax**2.0 / 2.0)
-        * (1.0 - m**2.0 / xnm**2.0)
-        * torch.from_numpy(bessel.get_Jm(m, xnm.numpy())) ** 2.0
+        * (1.0 - l**2.0 / xkl**2.0)
+        * torch.from_numpy(bessel.get_Jm(l, xkl.numpy())) ** 2.0
     )
 
 
-def get_Rnm(r: torch.Tensor, m: int, knm: float, Nnm: float) -> torch.Tensor:
+def get_Rkl(r: torch.Tensor, l: int, zkl: float, Nkl: float) -> torch.Tensor:
     """Radial component of the polar basis function.
 
     Args:
         r - Radial values.
-        m - Order.
-        knm - Corresponding k Fourier mode for n and m.
-        Nnm - Corresponding normalisation constant.
+        l - Order.
+        zkl - Corresponding z Fourier mode for n and m.
+        Nkl - Corresponding normalisation constant.
     """
-    return (1.0 / math.sqrt(Nnm)) * torch.from_numpy(
-        bessel.get_Jm(m, knm * r.cpu().numpy())
+    return (1.0 / math.sqrt(Nkl)) * torch.from_numpy(
+        bessel.get_Jm(l, zkl * r.cpu().numpy())
     )
 
 
-def get_Phi_m(m: int, phi: torch.Tensor) -> torch.Tensor:
+def get_Phi_l(l: int, phi: torch.Tensor) -> torch.Tensor:
     """Angular component of the polar basis function.
 
     Args:
-        m - Order.
+        l - Order.
         phi - Angular values (radians).
     """
-    if m == 0:
-        return torch.ones_like(phi) / math.sqrt(2 * torch.pi)
+    if l == 0:
+        Phi_l = torch.ones_like(phi) / math.sqrt(2 * torch.pi)
     else:
-        return torch.stack(
+        Phi_l = torch.stack(
             [
-                torch.cos(m * phi) / math.sqrt(2 * torch.pi),
-                torch.sin(m * phi) / math.sqrt(2 * torch.pi),
+                torch.cos(l * phi) / math.sqrt(2 * torch.pi),
+                torch.sin(l * phi) / math.sqrt(2 * torch.pi),
             ]
         )
 
+    return Phi_l
 
-def get_Psi_nm(
-    n: int, m: int, r: torch.Tensor, phi: torch.Tensor, knm: float, Nnm: torch.Tensor
+
+def get_Psi_kl(
+    l: int, r: torch.Tensor, phi: torch.Tensor, zkl: float, Nkl: torch.Tensor
 ) -> torch.Tensor:
     """Polar radial basis function
     Args:
-        n - Number of zeros.
-        m - Bessel order.
+        l - Bessel order.
         r - Radius.
         phi - Angle.
-        knm - Corresponding k Fourier mode for n and m.
-        Nnm - Corresponding normalisation constant.
+        zkl - Corresponding z Fourier mode for k and l.
+        Nkl - Corresponding normalisation constant.
     """
-    Phi_m = get_Phi_m(m, phi)
-    Rnm = get_Rnm(r, m, knm, Nnm).to(r.device)
-    Psi_nm = Phi_m * Rnm
+    Phi_l = get_Phi_l(l, phi)
+    Rkl = get_Rkl(r, l, zkl, Nkl).to(r.device)
+    Psi_kl = Phi_l * Rkl
 
-    return Psi_nm
+    return Psi_kl
 
 
 class PolarHarmonics(HarmonicFunction):
@@ -158,107 +159,96 @@ class PolarHarmonics(HarmonicFunction):
     def init(self) -> None:
         """Initialize the intermediate variables and basis functions."""
         self.r2d, self.p2d = grid.polar_grid(
-            self.max_radius, self.num_radii, self.num_phi, r_origin=self.min_radius
+            self.max_radius, self.num_radii, self.num_phi, r_min=self.min_radius
         )
         self.dr = self.r2d[0][1] - self.r2d[0][0]
         self.dphi = self.p2d[1][0] - self.p2d[0][0]
-        self.m = get_m(self.L)
-        self.n = get_n(self.K)
-        self.m2d, self.n2d = torch.meshgrid(self.m, self.n, indexing="ij")
+        self.l = get_l(self.L)
+        self.k = get_k(self.K)
+        self.l2d, self.k2d = torch.meshgrid(self.l, self.k, indexing="ij")
 
-        self.xnm = torch.zeros(self.m2d.shape)
-        self.knm = torch.zeros(self.m2d.shape)
-        self.Nnm = torch.zeros(self.m2d.shape)
+        self.xkl = torch.zeros(self.l2d.shape)
+        self.zkl = torch.zeros(self.l2d.shape)
+        self.Nkl = torch.zeros(self.l2d.shape)
 
         # Compute intermediate variables for Polar harmonics
-        len_m = len(self.m2d)
-        for i in range(len_m):
-            mval = self.m[i].item()
-            nval = self.n[-1].item()
+        len_l = len(self.l2d)
+        for i in range(len_l):
+            lval = self.l[i].item()
+            kval = self.l[-1].item()
             if self.boundary == "zero":
-                xnm = torch.from_numpy(bessel.get_Jm_zeros(mval, nval))
-                knm = get_knm(xnm, self.max_radius)
-                Nnm = get_Nnm_zero(mval, xnm, self.max_radius)
+                xkl = torch.from_numpy(bessel.get_Jm_zeros(lval, kval))
+                zkl = get_zkl(xkl, self.max_radius)
+                Nkl = get_Nkl_zero(lval, xkl, self.max_radius)
             else:
-                xnm = torch.from_numpy(bessel.get_dJm_zeros(mval, nval))
-                knm = get_knm(xnm, self.max_radius)
-                Nnm = get_Nnm_deri(mval, xnm, self.max_radius)
+                xkl = torch.from_numpy(bessel.get_dJm_zeros(lval, kval))
+                zkl = get_zkl(xkl, self.max_radius)
+                Nkl = get_Nkl_deri(lval, xkl, self.max_radius)
 
-            self.xnm[i] = xnm
-            self.knm[i] = knm
-            self.Nnm[i] = Nnm
+            self.xkl[i] = xkl
+            self.zkl[i] = zkl
+            self.Nkl[i] = Nkl
 
-        self.m2d_flat = self.m2d.flatten()
-        self.n2d_flat = self.n2d.flatten()
-        self.xnm_flat = self.xnm.flatten()
-        self.knm_flat = self.knm.flatten()
-        self.Nnm_flat = self.Nnm.flatten()
+        self.l2d_flat = self.l2d.flatten()
+        self.k2d_flat = self.k2d.flatten()
+        self.xkl_flat = self.xkl.flatten()
+        self.zkl_flat = self.zkl.flatten()
+        self.Nkl_flat = self.Nkl.flatten()
 
         self.Psi = nn.Parameter(self.generate_basis_fns())
 
     def generate_basis_fns(self, coords: torch.Tensor = None) -> torch.Tensor:
-        # Pre-Compute Polar Basis Functions for specified grid
         if coords is None:
             pass
 
         Psi = torch.zeros(((self.K * (self.L * 2 + 1)),) + self.r2d.shape)
         li = 0
-        for i in range(0, len(self.m2d_flat)):
-            Psi_nm = get_Psi_nm(
-                self.n2d_flat[i].item(),
-                self.m2d_flat[i].item(),
+        for i in range(0, len(self.l2d_flat)):
+            Psi_kl = get_Psi_kl(
+                self.l2d_flat[i].item(),
                 self.r2d,
                 self.p2d,
-                self.knm_flat[i].item(),
-                self.Nnm_flat[i],
+                self.zkl_flat[i].item(),
+                self.Nkl_flat[i],
             )
 
-            if self.m2d_flat[i] == 0:
-                Psi[li] = Psi_nm
+            if self.l2d_flat[i] == 0:
+                Psi[li] = Psi_kl
                 li += 1
             else:
-                Psi[li] = Psi_nm[0]
-                Psi[li + 1] = Psi_nm[1]
+                Psi[li] = Psi_kl[0]
+                Psi[li + 1] = Psi_kl[1]
                 li += 2
         Psi = Psi.unsqueeze(0)
 
         return Psi
 
-    def evaluate(
-        self, Pnm: torch.Tensor, radii: torch.Tensor = None, phis: torch.Tensor = None
-    ) -> torch.Tensor:
-        """Evaluate the polar fourier coefficients on the predefined grid.
+    def forward(self, w: torch.Tensor, coords: torch.Tensor = None) -> torch.Tensor:
+        B = w.size(0)
 
-        Args:
-            Pnm - Polar fourier coefficients.
-        """
-        B = Pnm.size(0)
-
-        if radii is not None:
-            f = torch.zeros((B,) + radii.shape[1:]).to(Pnm.device)
+        if coords is not None:
+            out = torch.zeros((B,) + coords.shape[2:]).to(w.device)
             li = 0
-            for i in range(len(self.m2d_flat)):
-                Psi = get_Psi_nm(
-                    self.n2d_flat[i].item(),
-                    self.m2d_flat[i].item(),
-                    radii,
-                    phis,
-                    self.knm_flat[i].item(),
-                    self.Nnm_flat[i],
-                ).to(radii.device)
+            for i in range(len(self.l2d_flat)):
+                Psi = get_Psi_kl(
+                    self.l2d_flat[i].item(),
+                    coords[0],
+                    coords[1],
+                    self.zkl_flat[i].item(),
+                    self.Nkl_flat[i],
+                ).to(coords.device)
 
-                if self.m2d_flat[i] == 0:
-                    f += torch.einsum("n,nrp->nrp", Pnm[:, li], Psi)
+                if self.l2d_flat[i] == 0:
+                    out += torch.einsum("n,nrp->nrp", w[:, li], Psi)
                     li += 1
                 else:
-                    f += torch.einsum("n,nrp->nrp", Pnm[:, li], Psi[0])
-                    f += torch.einsum("n,nrp->nrp", Pnm[:, li + 1], Psi[1])
+                    out += torch.einsum("n,nrp->nrp", w[:, li], Psi[0])
+                    out += torch.einsum("n,nrp->nrp", w[:, li + 1], Psi[1])
                     li += 2
-            return f
         else:
-            Psi = self.Psi.repeat(B, 1, 1, 1).to(Pnm.device)
-            f = torch.zeros((B,) + self.r2d.shape).to(Pnm.device)
-            for i in range(Pnm.size(1)):
-                f += torch.einsum("n,nrp->nrp", Pnm[:, i], Psi[:, i])
-                # f += Pnm[:,i].view(-1, 1, 1) * Psi[:,i]
-            return f
+            Psi = self.Psi.repeat(B, 1, 1, 1).to(w.device)
+            out = torch.zeros((B,) + self.r2d.shape).to(w.device)
+            for i in range(w.size(1)):
+                out += torch.einsum("n,nrp->nrp", w[:, i], Psi[:, i])
+
+        return out
