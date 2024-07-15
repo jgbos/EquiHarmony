@@ -22,7 +22,7 @@ class CircularHarmonics(HarmonicFunction):
 
         self.num_phi = num_phi
         self.L = L
-        self.basis_fns = nn.Parameter(self.generate_basis_fns())
+        self.basis_fns = nn.Parameter(self.generate_basis_fns(), requires_grad=False)
 
     def generate_basis_fns(self, coords: torch.Tensor = None) -> torch.Tensor:
         if coords is None:
@@ -32,7 +32,7 @@ class CircularHarmonics(HarmonicFunction):
             .view(-1, 1)
             .to(coords.device)
         ]
-        for l in range(1, self.L + 1):
+        for l in range(1, self.L):
             basis_fns.append(torch.cos(l * coords) / np.sqrt(torch.pi))
             basis_fns.append(torch.sin(l * coords) / np.sqrt(torch.pi))
 
@@ -41,7 +41,7 @@ class CircularHarmonics(HarmonicFunction):
     def forward(self, w: torch.Tensor, coords: torch.Tensor = None) -> torch.Tensor:
         if coords is not None:
             basis_fns = self.generate_basis_fns(coords).permute(1, 0)
-            num_basis_fns = self.L * 2 + 1
+            num_basis_fns = self.L * 2 - 1
             out = torch.bmm(
                 w.view(-1, 1, num_basis_fns), basis_fns.view(-1, num_basis_fns, 1)
             )
