@@ -7,13 +7,25 @@ import matplotlib.pyplot as plt
 import numpy.typing as npt
 
 
-def plot_circular_fn(data: npt.NDArray, fig: Figure = None, title: str = None):
+def plot_circular_fn(
+    data: npt.NDArray, fig: Figure = None, title: str = None, plot_neg: bool = False
+):
     """Plot circular function"""
     if fig is None:
         fig = plt.figure()
 
     ax = fig.add_subplot(projection="polar")
-    ax.plot(np.linspace(0, 2 * np.pi, data.shape[0]), data)
+
+    x = np.linspace(0, 2 * np.pi, data.shape[0])
+    if plot_neg:
+        pos_x = x[data > 0]
+        pos = data[data > 0]
+        neg_x = x[data < 0]
+        neg = data[data < 0]
+        ax.plot(pos_x, np.abs(pos), color="blue")
+        ax.plot(neg_x, np.abs(neg), color="orange")
+    else:
+        ax.plot(x, data, color="blue")
 
     ax.set_rmax(np.max(data) + 0.2)
     ax.set_rticks([])
