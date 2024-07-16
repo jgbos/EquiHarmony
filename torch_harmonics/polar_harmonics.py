@@ -140,8 +140,8 @@ class PolarHarmonics(HarmonicFunction):
         L: int,
         min_radius: float = 0.0,
         max_radius: float = 1.0,
-        num_radii: int = None,
-        num_phi: int = None,
+        num_radii: int = 100,
+        num_phi: int = 360,
         boundary: str = "zero",
     ):
         super().__init__()
@@ -175,7 +175,7 @@ class PolarHarmonics(HarmonicFunction):
         len_l = len(self.l2d)
         for i in range(len_l):
             lval = self.l[i].item()
-            kval = self.l[-1].item()
+            kval = self.k[-1].item()
             if self.boundary == "zero":
                 xkl = torch.from_numpy(bessel.get_Jm_zeros(lval, kval))
                 zkl = get_zkl(xkl, self.max_radius)
@@ -195,7 +195,7 @@ class PolarHarmonics(HarmonicFunction):
         self.zkl_flat = self.zkl.flatten()
         self.Nkl_flat = self.Nkl.flatten()
 
-        self.Psi = nn.Parameter(self.generate_basis_fns())
+        self.Psi = nn.Parameter(self.generate_basis_fns(), requires_grad=False)
 
     def generate_basis_fns(self, coords: torch.Tensor = None) -> torch.Tensor:
         if coords is None:

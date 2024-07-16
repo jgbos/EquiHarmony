@@ -37,7 +37,21 @@ def plot_circular_fn(
 
 def plot_polar_fn(data: npt.NDArray, fig: Figure = None, title: str = None):
     """Plot polar function"""
-    pass
+    if fig is None:
+        fig = plt.figure()
+
+    ax = fig.add_subplot(projection="polar")
+
+    r = np.linspace(0, np.max(data[0]), data.shape[0])
+    phi = np.linspace(0, 2 * np.pi, data.shape[1])
+    ax.pcolormesh(phi, r, data)
+
+    ax.set_title(title, va="bottom")
+    ax.grid(False)
+    ax.set_yticklabels([])
+    ax.set_xticklabels([])
+
+    return ax
 
 
 def plot_cylinder_fn(data: npt.NDArray, fig: Figure = None, title: str = None):
