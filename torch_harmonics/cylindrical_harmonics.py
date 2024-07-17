@@ -1,4 +1,7 @@
+""" cylindrical_harmonics.py """
+
 import torch
+from torch import nn
 
 from torch_harmonics.harmonic_function import HarmonicFunction
 from torch_harmonics import bessel, grid
@@ -61,24 +64,26 @@ def get_Psi_klm(
 
 
 class CylindricalHarmonics(HarmonicFunction):
+    """Cylindrical Harmonics"""
+
     def __init__(
         self,
-        radial_frequency: int,
-        angular_frequency: int,
-        axial_frequency: int,
+        K: int,
+        L: int,
+        M: int,
         min_radius: float = 0.0,
         max_radius: float = 1.0,
         max_height: float = 1.0,
-        num_radii: int = None,
-        num_phi: int = None,
-        num_height: int = None,
+        num_radii: int = 100,
+        num_phi: int = 360,
+        num_height: int = 100,
         boundary: str = "zero",
     ):
         super().__init__()
 
-        self.radial_frequency = radial_frequency
-        self.angular_frequency = angular_frequency
-        self.axial_frequency = axial_frequency
+        self.K = K
+        self.L = L
+        self.M = M
         self.min_radius = min_radius
         self.max_radius = max_radius
         self.max_height = max_height
@@ -97,15 +102,15 @@ class CylindricalHarmonics(HarmonicFunction):
             self.num_radii,
             self.num_phi,
             self.num_height,
-            r_origin=self.min_radius,
+            r_min=self.min_radius,
         )
         self.dr = self.r2d[0][1] - self.r2d[0][0]
         self.dphi = self.p2d[1][0] - self.p2d[0][0]
         self.dz = self.z2d[0][2] - self.z2d[0][0]
 
-        self.k = get_k(self.radial_frequency)
-        self.l = get_l(self.angular_frequency)
-        self.m = get_m(self.axial_frequency)
+        self.k = get_k(self.K)
+        self.l = get_l(self.L)
+        self.m = get_m(self.M)
         self.l2d, self.k2d = torch.meshgrid(self.l, self.k, indexing="ij")
 
         self.xkl = torch.zeros(self.l2d.shape)
@@ -119,7 +124,7 @@ class CylindricalHarmonics(HarmonicFunction):
             kval = self.k[-1].item()
             if self.boundary == "zero":
                 xkl = torch.from_numpy(bessel.get_Jm_zeros(lval, kval))
-                zkl = get_knm(xkl, self.max_radius)
+                zkl = get_zkl(xkl, self.max_radius)
                 Nkl = get_Nkl_zero(lval, xkl, self.max_radius)
             else:
                 xkl = torch.from_numpy(bessel.get_dJm_zeros(lval, kval))
@@ -136,42 +141,33 @@ class CylindricalHarmonics(HarmonicFunction):
         self.zkl_flat = self.zkl.flatten()
         self.Nkl_flat = self.Nkl.flatten()
 
-        self.Psi = self.generate_basis_fns()
+        self.Psi = nn.Parameter(self.generate_basis_fns(), requires_grad=False)
 
     def generate_basis_fns(self, coords: torch.Tensor = None) -> torch.Tensor:
         if coords is None:
             pass
-        else:
-            Psi = torch.zeros(
-                (
-                    (
-                        self.radial_frequency
-                        * self.axial_frequency
-                        * (self.angular_frequency * 2 + 1)
-                    ),
+
+        Psi = torch.zeros(((self.K * self.M * (self.L * 2 + 1)),) + self.r2d.shape)
+        for m in range(0, self.m[-1]):
+            li = 0
+            for i in range(0, len(self.l2d_flat)):
+                Psi_klm = get_Psi_klm(
+                    self.l2d_flat[i].item(),
+                    self.m[m].item(),
+                    self.r2d,
+                    self.p2d,
+                    self.z2d,
+                    self.zkl_flat[i].item(),
+                    self.Nkl_flat[i],
                 )
-                + self.r2d.shape
-            )
-            for m in range(0, self.m[-1]):
-                li = 0
-                for i in range(0, len(self.l2d_flat)):
-                    Psi_klm = get_Psi_klm(
-                        self.l2d_flat[i].item(),
-                        self.m[m].item(),
-                        self.r2d,
-                        self.p2d,
-                        self.z2d,
-                        self.zkl_flat[i].item(),
-                        self.Nkl_flat[i],
-                    )
-                    if self.l2d_flat[i] == 0:
-                        Psi[m * (self.l[-1] * 2 + 1) + li] = Psi_klm
-                        li += 1
-                    else:
-                        Psi[m * (self.l[-1] * 2 + 1) + li] = Psi_klm[0]
-                        Psi[m * (self.l[-1] * 2 + 1) + li + 1] = Psi_klm[1]
-                        li += 2
-            Psi = Psi.unsqueeze(0)
+                if self.l2d_flat[i] == 0:
+                    Psi[m * (self.l[-1] * 2 + 1) + li] = Psi_klm
+                    li += 1
+                else:
+                    Psi[m * (self.l[-1] * 2 + 1) + li] = Psi_klm[0]
+                    Psi[m * (self.l[-1] * 2 + 1) + li + 1] = Psi_klm[1]
+                    li += 2
+        Psi = Psi.unsqueeze(0)
 
         return Psi
 
