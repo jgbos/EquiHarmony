@@ -45,7 +45,7 @@ def plot_polar_fn(data: npt.NDArray, fig: Figure = None, title: str = None):
 
     r = np.linspace(0, np.max(data[0]), data.shape[0])
     phi = np.linspace(0, 2 * np.pi, data.shape[1])
-    ax.pcolormesh(phi, r, data)
+    ax.pcolormesh(phi, r, data, vmin=-1, vmax=1)
 
     ax.set_title(title, va="bottom")
     ax.grid(False)

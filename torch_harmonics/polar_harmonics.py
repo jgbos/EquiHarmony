@@ -198,28 +198,29 @@ class PolarHarmonics(HarmonicFunction):
         self.Psi = nn.Parameter(self.generate_basis_fns(), requires_grad=False)
 
     def generate_basis_fns(self, coords: torch.Tensor = None) -> torch.Tensor:
-        if coords is None:
-            pass
+        if coords is not None:
+            r2d, p2d = torch.meshgrid(coords[:, 0], coords[:, 1], indexing="ij")
+        else:
+            r2d = self.r2d
+            p2d = self.p2d
 
-        Psi = torch.zeros(((self.K * (self.L * 2 + 1)),) + self.r2d.shape)
-        li = 0
+        Psi = torch.zeros((self.K, self.L * 2 + 1) + r2d.shape)
         for i in range(0, len(self.l2d_flat)):
             Psi_kl = get_Psi_kl(
                 self.l2d_flat[i].item(),
-                self.r2d,
-                self.p2d,
+                r2d,
+                p2d,
                 self.zkl_flat[i].item(),
                 self.Nkl_flat[i],
             )
 
             if self.l2d_flat[i] == 0:
-                Psi[li] = Psi_kl
-                li += 1
+                Psi[self.k2d_flat[i] - 1, self.l2d_flat[i]] = Psi_kl
             else:
-                Psi[li] = Psi_kl[0]
-                Psi[li + 1] = Psi_kl[1]
-                li += 2
-        Psi = Psi.unsqueeze(0)
+                li = self.l2d_flat[i] * 2 - 1
+                Psi[self.k2d_flat[i] - 1, li] = Psi_kl[0]
+                Psi[self.k2d_flat[i] - 1, li + 1] = Psi_kl[1]
+        Psi = Psi.flatten(0, 1).unsqueeze(0)
 
         return Psi
 
@@ -227,28 +228,10 @@ class PolarHarmonics(HarmonicFunction):
         B = w.size(0)
 
         if coords is not None:
-            out = torch.zeros((B,) + coords.shape[2:]).to(w.device)
-            li = 0
-            for i in range(len(self.l2d_flat)):
-                Psi = get_Psi_kl(
-                    self.l2d_flat[i].item(),
-                    coords[0],
-                    coords[1],
-                    self.zkl_flat[i].item(),
-                    self.Nkl_flat[i],
-                ).to(coords.device)
-
-                if self.l2d_flat[i] == 0:
-                    out += torch.einsum("n,nrp->nrp", w[:, li], Psi)
-                    li += 1
-                else:
-                    out += torch.einsum("n,nrp->nrp", w[:, li], Psi[0])
-                    out += torch.einsum("n,nrp->nrp", w[:, li + 1], Psi[1])
-                    li += 2
+            Psi = self.generate_basis_fns(coords).repeat(B, 1, 1, 1)
         else:
-            Psi = self.Psi.repeat(B, 1, 1, 1).to(w.device)
-            out = torch.zeros((B,) + self.r2d.shape).to(w.device)
-            for i in range(w.size(1)):
-                out += torch.einsum("n,nrp->nrp", w[:, i], Psi[:, i])
+            Psi = self.Psi.repeat(B, 1, 1, 1)
+
+        out = torch.einsum("bn,bnrp->bnrp", w, Psi).sum(1)
 
         return out
