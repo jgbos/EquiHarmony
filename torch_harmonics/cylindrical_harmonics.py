@@ -144,30 +144,34 @@ class CylindricalHarmonics(HarmonicFunction):
         self.Psi = nn.Parameter(self.generate_basis_fns(), requires_grad=False)
 
     def generate_basis_fns(self, coords: torch.Tensor = None) -> torch.Tensor:
-        if coords is None:
-            pass
+        if coords is not None:
+            r2d, p2d, z2d = torch.meshgrid(
+                coords[:, 0], coords[:, 1], coords[:, 2], indexing="ij"
+            )
+        else:
+            r2d = self.r2d
+            p2d = self.p2d
+            z2d = self.z2d
 
-        Psi = torch.zeros(((self.K * self.M * (self.L * 2 + 1)),) + self.r2d.shape)
+        Psi = torch.zeros((self.M, self.K, self.L * 2 + 1) + r2d.shape)
         for m in range(0, self.m[-1]):
-            li = 0
             for i in range(0, len(self.l2d_flat)):
                 Psi_klm = get_Psi_klm(
                     self.l2d_flat[i].item(),
                     self.m[m].item(),
-                    self.r2d,
-                    self.p2d,
-                    self.z2d,
+                    r2d,
+                    p2d,
+                    z2d,
                     self.zkl_flat[i].item(),
                     self.Nkl_flat[i],
                 )
                 if self.l2d_flat[i] == 0:
-                    Psi[m * (self.l[-1] * 2 + 1) + li] = Psi_klm
-                    li += 1
+                    Psi[m, self.k2d_flat[i] - 1, self.l2d_flat[i]] = Psi_klm
                 else:
-                    Psi[m * (self.l[-1] * 2 + 1) + li] = Psi_klm[0]
-                    Psi[m * (self.l[-1] * 2 + 1) + li + 1] = Psi_klm[1]
-                    li += 2
-        Psi = Psi.unsqueeze(0)
+                    li = self.l2d_flat[i] * 2 - 1
+                    Psi[m, self.k2d_flat[i] - 1, li] = Psi_klm[0]
+                    Psi[m, self.k2d_flat[i] - 1, li + 1] = Psi_klm[1]
+        Psi = Psi.flatten(0, 2).unsqueeze(0)
 
         return Psi
 
@@ -175,31 +179,9 @@ class CylindricalHarmonics(HarmonicFunction):
         B = w.size(0)
 
         if coords is not None:
-            out = torch.zeros((B,) + coords.shape[2:]).to(w.device)
-            li = 0
-            for m in range(0, self.m[-1]):
-                for i in range(len(self.l2d_flat)):
-                    Psi = get_Psi_klm(
-                        self.l2d_flat[i].item(),
-                        self.m[m].item(),
-                        coords[0],
-                        coords[1],
-                        coords[2],
-                        self.zkl_flat[i].item(),
-                        self.Nkl_flat[i],
-                    ).to(coords.device)
-
-                    if self.l2d_flat[i] == 0:
-                        out += torch.einsum("n,nrpz->nrpz", w[:, li], Psi)
-                        li += 1
-                    else:
-                        out += torch.einsum("n,nrpz->nrpz", w[:, li], Psi[0])
-                        out += torch.einsum("n,nrpz->nrpz", w[:, li + 1], Psi[1])
-                        li += 2
+            Psi = self.generate_basis_fns(coords).repeat(B, 1, 1, 1, 1)
         else:
-            Psi = self.Psi.repeat(B, 1, 1, 1, 1).to(w.device)
-            out = torch.zeros((B,) + self.r2d.shape).to(w.device)
-            for i in range(w.size(1)):
-                out += torch.einsum("n,nrpz->nrpz", w[:, i], Psi[:, i])
+            Psi = self.Psi.repeat(B, 1, 1, 1, 1)
 
+        out = torch.einsum("bn,bnrpz->bnrpz", w, Psi).sum(1)
         return out
