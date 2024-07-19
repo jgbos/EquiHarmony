@@ -1,6 +1,7 @@
 """ grid.py """
 
 from typing import Tuple
+import numpy as np
 import torch
 
 
@@ -63,53 +64,50 @@ def cylinder_grid(
     return r2d, p2d, z2d
 
 
-def spherical_grid(num_theta: int, num_phi: int):
-    """Generates 2-Sphere grid.
+def spherical_healpix_grid(N_side: int) -> torch.Tensor:
+    """Generate a grid of points on the 2-sphere using Healpix.
 
     Args:
-        num_theta - Number of elements along the longitude axis.
-        num_phi - Number of elements along the latitude axis.
+        N_side - Number of elements.
     """
-    _, t = grid1D(2.0 * torch.pi, num_theta)
-    _, p = grid1D(2.0 * torch.pi, num_phi)
-    t2d, p2d = torch.meshgrid(t, p, indexing="ij")
+    north_points = []
 
-    return t2d, p2d
+    # north polar cap
+    for i in range(1, N_side):
+        for j in range(1, 4 * i + 1):
+            cos_theta = 1.0 - i**2 / (3 * N_side**2)
+            phi = np.pi / (2 * i) * (j - 0.5)
 
+            sin_theta = np.sqrt(1.0 - cos_theta**2)
 
-def wrap_polar(f: torch.Tensor) -> torch.Tensor:
-    """Wraps polar grid, which is useful for plotting purposes.
+            north_points.append(
+                np.array([np.cos(phi) * sin_theta, np.sin(phi) * sin_theta, cos_theta])
+            )
 
-    Args:
-        f - Field polar grid.
-    """
-    return torch.concatenate([f, torch.array([f[0]])])
+    # north equatorial belt
+    for i in range(N_side, 2 * N_side + 1):
+        for j in range(1, 4 * N_side + 1):
+            cos_theta = 4.0 / 3.0 - 2 * i / (3 * N_side)
+            s = (i - N_side + 1) % 2
+            phi = np.pi / (2 * N_side) * (j - s / 2.0)
 
+            sin_theta = np.sqrt(1.0 - cos_theta**2)
+            north_points.append(
+                np.array([np.cos(phi) * sin_theta, np.sin(phi) * sin_theta, cos_theta])
+            )
 
-def unwrap_polar(f: torch.Tensor) -> torch.Tensor:
-    """Unwraps polar grid.
+    points = []
+    # add points on the south pole (symmetric to north pole wrt equator, i.e. z=0)
+    for p in north_points:
+        if p[2] > 0.0:
+            sp = p.copy()
+            sp[2] *= -1
+            points.append(sp)
+    points += north_points
 
-    Args:
-        f - Wrapped field polar grid.
-    """
-    return f[:-1]
+    N_pix = 12 * N_side**2
+    assert len(points) == N_pix, (len(points), N_side, N_pix)
 
+    points = np.stack(points, axis=0)
 
-def wrap_phi(p2d: torch.Tensor) -> torch.Tensor:
-    """Wraps polar grid, which is useful for plotting purposes.
-
-    Args:
-        p2d - Phi grid.
-    """
-    p2d = wrap_polar(p2d)
-    p2d[-1] = 2.0 * torch.pi
-    return p2d
-
-
-def unwrap_phi(f: torch.Tensor) -> torch.Tensor:
-    """Unwraps polar grid.
-
-    Args:
-        f - Wrapped Phi grid.
-    """
-    return f[:-1]
+    return points
