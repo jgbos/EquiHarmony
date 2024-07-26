@@ -37,6 +37,24 @@ def polar_grid(
     return r2d, p2d
 
 
+def reg_polar_grid(
+    r_max: float, num_r: int, num_phi: int, r_min: float = 0.0
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Returns a 2D polar grid.
+
+    Args:
+        r_max - Maximum radius.
+        Nr - Number of elements along the radial axis.
+        Nphi- Number of elements along the angular axis.
+        r_min - Minimum radius.
+    """
+    _, r = grid1D(r_max, num_r, origin=r_min)
+    n = [num_phi * (i + 1) for i in range(num_r)]
+    p = torch.concat([torch.linspace(0, 2 * np.pi, i + 1) for i in n])
+    r2d, p2d = torch.meshgrid(r, p, indexing="ij")
+    return r2d, p2d
+
+
 def cylinder_grid(
     r_max: float,
     z_max: float,

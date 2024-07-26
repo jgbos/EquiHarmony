@@ -3,12 +3,16 @@
 import numpy as np
 import torch
 from torch import nn
+
+from lie_learn.representations.SO3 import spherical_harmonics
+from lie_learn.spaces import S2
+
 from torch_harmonics.harmonic_function import HarmonicFunction
 
 
 class SphericalHarmonics(HarmonicFunction):
     """
-    Torch module for computing a spherical function using Fourier coefficients and sphericacl
+    Torch module for computing a spherical function using Fourier coefficients and spherical
     harmonics basis functions. Pre-computes basis functions for a grid of values which can
     be used for faster evaluation.
 
@@ -21,33 +25,50 @@ class SphericalHarmonics(HarmonicFunction):
     def __init__(self, L: int, num_lat: int = 360, num_lon: int = 360):
         super().__init__()
 
+        self.L = L
         self.num_lat = num_lat
         self.num_lon = num_lon
-        self.L = L
-        self.basis_fns = nn.Parameter(self.generate_basis_fns(), requires_grad=False)
+
+        self.Y = nn.Parameter(self.generate_basis_fns(), requires_grad=False)
 
     def generate_basis_fns(self, coords: torch.Tensor = None) -> torch.Tensor:
         if coords is None:
-            coords = torch.linspace(0, 2 * torch.pi, self.num_phi).view(-1, 1)
-        basis_fns = [
-            torch.tensor([1 / np.sqrt(2 * torch.pi)] * coords.size(0))
-            .view(-1, 1)
-            .to(coords.device)
-        ]
-        for l in range(1, self.L):
-            basis_fns.append(torch.cos(l * coords) / np.sqrt(torch.pi))
-            basis_fns.append(torch.sin(l * coords) / np.sqrt(torch.pi))
+            beta, alpha = S2.meshgrid(self.num_lat)
+        else:
+            beta = coords[:, 1]
+            alpha = coords[:, 0]
 
-        return torch.stack(basis_fns).permute(1, 0, 2).float().squeeze().permute(1, 0)
+        irreps = np.arange(self.L + 1)
+        ls = [[ls] * (2 * ls + 1) for ls in irreps]
+        ls = np.array(
+            [ll for sublist in ls for ll in sublist]
+        )  # 0, 1, 1, 1, 2, 2, 2, 2, 2, ...
+
+        ms = [list(range(-ls, ls + 1)) for ls in irreps]
+        ms = np.array(
+            [mm for sublist in ms for mm in sublist]
+        )  # 0, -1, 0, 1, -2, -1, 0, 1, 2, ...
+
+        Y = spherical_harmonics.sh(
+            ls[:, None, None],
+            ms[:, None, None],
+            beta[None, :, :],
+            alpha[None, :, :],
+            field="real",
+            normalization="quantum",
+            condon_shortley=True,
+        )
+
+        return torch.tensor(Y)
 
     def forward(self, w: torch.Tensor, coords: torch.Tensor = None) -> torch.Tensor:
+        B = w.size(0)
+
         if coords is not None:
-            basis_fns = self.generate_basis_fns(coords).permute(1, 0)
-            num_basis_fns = self.L * 2 - 1
-            out = torch.bmm(
-                w.view(-1, 1, num_basis_fns), basis_fns.view(-1, num_basis_fns, 1)
-            )
+            Y = self.generate_basis_fns(coords).repeat(B, 1, 1, 1)
         else:
-            out = torch.mm(w, self.basis_fns)
+            Y = self.Y.repeat(B, 1, 1, 1)
+
+        out = torch.einsum("bn,bncd->bncd", w, Y).sum(1)
 
         return out

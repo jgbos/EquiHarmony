@@ -3,7 +3,9 @@
 import numpy as np
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
-from scipy.interpolate import LinearNDInterpolator, interpn
+from scipy.interpolate import LinearNDInterpolator
+import cartopy
+import cartopy.crs as ccrs
 
 import numpy.typing as npt
 
@@ -36,16 +38,26 @@ def plot_circular_fn(
     return ax
 
 
-def plot_polar_fn(data: npt.NDArray, fig: Figure = None, title: str = None):
+def plot_polar_fn(
+    data: npt.NDArray,
+    r: npt.NDArray = None,
+    phi: npt.NDArray = None,
+    vmin: float = None,
+    vmax: float = None,
+    fig: Figure = None,
+    title: str = None,
+):
     """Plot polar function"""
     if fig is None:
         fig = plt.figure()
 
     ax = fig.add_subplot(projection="polar")
 
-    r = np.linspace(0, np.max(data[0]), data.shape[0])
-    phi = np.linspace(0, 2 * np.pi, data.shape[1])
-    ax.pcolormesh(phi, r, data, vmin=-1, vmax=1)
+    if r is None:
+        r = np.linspace(0, np.max(data[0]), data.shape[0])
+    if phi is None:
+        phi = np.linspace(0, 2 * np.pi, data.shape[1])
+    ax.pcolormesh(phi, r, data, vmin=vmin, vmax=vmax)
 
     ax.set_title(title, va="bottom")
     ax.grid(False)
@@ -100,3 +112,50 @@ def plot_cylinder_fn(data: npt.NDArray, fig: Figure = None, title: str = None):
     ax.set_title(title, va="bottom")
 
     return ax
+
+
+def plot_spherical_fn(
+    data: npt.NDArray,
+    fig: Figure = None,
+    title: str = None,
+    central_longitude=20,
+    central_latitude=20,
+):
+    if fig is None:
+        fig = plt.figure()
+
+    nlat = data.shape[-2]
+    nlon = data.shape[-1]
+    lon = np.linspace(0, 2 * np.pi, nlon)
+    lat = np.linspace(np.pi / 2.0, -np.pi / 2.0, nlat)
+    Lon, Lat = np.meshgrid(lon, lat)
+
+    proj = ccrs.Orthographic(
+        central_longitude=central_longitude, central_latitude=central_latitude
+    )
+
+    ax = fig.add_subplot(projection=proj)
+    Lon = Lon * 180 / np.pi
+    Lat = Lat * 180 / np.pi
+
+    # contour data over the map.
+    im = ax.pcolormesh(
+        Lon,
+        Lat,
+        data,
+        cmap="RdBu",
+        transform=ccrs.PlateCarree(),
+        antialiased=False,
+    )
+    if False:
+        ax.add_feature(
+            cartopy.feature.COASTLINE,
+            edgecolor="white",
+            facecolor="none",
+            linewidth=1.5,
+        )
+    if False:
+        plt.colorbar(im)
+    plt.title(title, y=1.05)
+
+    return im

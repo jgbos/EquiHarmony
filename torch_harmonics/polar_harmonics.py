@@ -195,16 +195,23 @@ class PolarHarmonics(HarmonicFunction):
         self.zkl_flat = self.zkl.flatten()
         self.Nkl_flat = self.Nkl.flatten()
 
-        self.Psi = nn.Parameter(self.generate_basis_fns(), requires_grad=False)
+        self.Psi = self.generate_basis_fns()
 
     def generate_basis_fns(self, coords: torch.Tensor = None) -> torch.Tensor:
         if coords is not None:
-            r2d, p2d = torch.meshgrid(coords[:, 0], coords[:, 1], indexing="ij")
+            B = 1
+            R = coords.size(0)
+            D = 1
+            r2d = coords[:, 0].view(R, 1)
+            p2d = coords[:, 1].view(R, 1)
         else:
+            B = 1
+            R = self.num_radii
+            D = self.num_phi
             r2d = self.r2d
             p2d = self.p2d
 
-        Psi = torch.zeros((self.K, self.L * 2 + 1) + r2d.shape)
+        Psi = torch.zeros(B, self.K, self.L * 2 + 1, R, D)
         for i in range(0, len(self.l2d_flat)):
             Psi_kl = get_Psi_kl(
                 self.l2d_flat[i].item(),
@@ -215,12 +222,12 @@ class PolarHarmonics(HarmonicFunction):
             )
 
             if self.l2d_flat[i] == 0:
-                Psi[self.k2d_flat[i] - 1, self.l2d_flat[i]] = Psi_kl
+                Psi[:, self.k2d_flat[i] - 1, self.l2d_flat[i]] = Psi_kl
             else:
                 li = self.l2d_flat[i] * 2 - 1
-                Psi[self.k2d_flat[i] - 1, li] = Psi_kl[0]
-                Psi[self.k2d_flat[i] - 1, li + 1] = Psi_kl[1]
-        Psi = Psi.flatten(0, 1).unsqueeze(0)
+                Psi[:, self.k2d_flat[i] - 1, li] = Psi_kl[0]
+                Psi[:, self.k2d_flat[i] - 1, li + 1] = Psi_kl[1]
+        Psi = Psi.flatten(1, 2)
 
         return Psi
 
@@ -228,9 +235,9 @@ class PolarHarmonics(HarmonicFunction):
         B = w.size(0)
 
         if coords is not None:
-            Psi = self.generate_basis_fns(coords).repeat(B, 1, 1, 1)
+            Psi = self.generate_basis_fns(coords).permute(2, 1, 0, 3).to(w.device)
         else:
-            Psi = self.Psi.repeat(B, 1, 1, 1)
+            Psi = self.Psi.repeat(B, 1, 1, 1).to(w.device)
 
         out = torch.einsum("bn,bnrp->bnrp", w, Psi).sum(1)
 
