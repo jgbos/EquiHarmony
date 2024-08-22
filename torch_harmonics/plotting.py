@@ -54,7 +54,7 @@ def plot_polar_fn(
     ax = fig.add_subplot(projection="polar")
 
     if r is None:
-        r = np.linspace(0, np.max(data[0]), data.shape[0])
+        r = np.linspace(0, 1, data.shape[0])
     if phi is None:
         phi = np.linspace(0, 2 * np.pi, data.shape[1])
     ax.pcolormesh(phi, r, data, vmin=vmin, vmax=vmax)
@@ -67,7 +67,9 @@ def plot_polar_fn(
     return ax
 
 
-def plot_cylinder_fn(data: npt.NDArray, fig: Figure = None, title: str = None):
+def plot_cylinder_fn(
+    data: npt.NDArray, fig: Figure = None, title: str = None, vmin=None, vmax=None
+):
     """Plot cylinder function"""
     if fig is None:
         fig = plt.figure()
@@ -77,9 +79,9 @@ def plot_cylinder_fn(data: npt.NDArray, fig: Figure = None, title: str = None):
     ax.yaxis.pane.fill = False
     ax.zaxis.pane.fill = False
 
-    r = np.linspace(0, 1, 10)
-    p = np.linspace(0, 2 * np.pi, 36)
-    z = np.linspace(0, 1, 10)
+    r = np.linspace(0, 1, data.shape[0])
+    p = np.linspace(0, 2 * np.pi, data.shape[1])
+    z = np.linspace(0, 1, data.shape[2])
 
     P, R, zs = np.meshgrid(p, r, z)
     xs = (R * np.cos(P)).flatten()
@@ -102,6 +104,53 @@ def plot_cylinder_fn(data: npt.NDArray, fig: Figure = None, title: str = None):
         Z.flatten(),
         c=idata.flatten(),
         s=10.0 * mask,
+        vmin=vmin,
+        vmax=vmax,
+        edgecolor="face",
+        alpha=0.2,
+        marker="o",
+        cmap="magma",
+        linewidth=0,
+    )
+
+    ax.set_title(title, va="bottom")
+
+    return ax
+
+
+def plot_cylinder_prob(
+    data: npt.NDArray, fig: Figure = None, title: str = None, vmin=None, vmax=None
+):
+    """Plot cylinder function"""
+    if fig is None:
+        fig = plt.figure()
+
+    ax = fig.add_subplot(projection="3d")
+    ax.xaxis.pane.fill = False
+    ax.yaxis.pane.fill = False
+    ax.zaxis.pane.fill = False
+
+    r = np.linspace(0, 1, data.shape[0])
+    p = np.linspace(0, 2 * np.pi, data.shape[1])
+    z = np.linspace(0, 1, data.shape[2])
+
+    ps, rs, zs = np.meshgrid(p, r, z)
+    xs = (rs * np.cos(ps)).flatten()
+    ys = (rs * np.sin(ps)).flatten()
+    zs = zs.flatten()
+
+    data = data.numpy()
+    data[np.isnan(data)] = 0
+    mask = data > np.mean(data)
+
+    plot = ax.scatter(
+        xs.flatten(),
+        ys.flatten(),
+        zs.flatten(),
+        c=data.flatten(),
+        s=10.0 * mask,
+        vmin=vmin,
+        vmax=vmax,
         edgecolor="face",
         alpha=0.2,
         marker="o",

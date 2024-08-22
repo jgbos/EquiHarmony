@@ -10,9 +10,9 @@ from lie_learn.spaces import S2
 from torch_harmonics.harmonic_function import HarmonicFunction
 
 
-class SphericalHarmonics(HarmonicFunction):
+class RadialSphericalHarmonics(HarmonicFunction):
     """
-    Torch module for computing a spherical function using Fourier coefficients and spherical
+    Torch module for computing a spherical function using Fourier coefficients and radial spherical
     harmonics basis functions. Pre-computes basis functions for a grid of values which can
     be used for faster evaluation.
 
@@ -22,14 +22,15 @@ class SphericalHarmonics(HarmonicFunction):
        num_lon - Number of elements on the longitudinal axis.
     """
 
-    def __init__(self, L: int, num_lat: int = 360, num_lon: int = 360):
+    def __init__(self, N: int, L: int, num_lat: int = 360, num_lon: int = 360):
         super().__init__()
 
+        self.N = N
         self.L = L
         self.num_lat = num_lat
         self.num_lon = num_lon
 
-        self.Y = nn.Parameter(self.generate_basis_fns(), requires_grad=False)
+        self.Y = self.generate_basis_fns()
 
     def generate_basis_fns(self, coords: torch.Tensor = None) -> torch.Tensor:
         if coords is None:
@@ -67,12 +68,13 @@ class SphericalHarmonics(HarmonicFunction):
 
     def forward(self, w: torch.Tensor, coords: torch.Tensor = None) -> torch.Tensor:
         B = w.size(0)
+        device = w.device()
 
         if coords is not None:
             Y = self.generate_basis_fns(coords).repeat(B, 1, 1, 1)
         else:
             Y = self.Y.repeat(B, 1, 1, 1)
 
-        out = torch.einsum("bn,bncd->bncd", w, Y).sum(1)
+        out = torch.einsum("bn,bncd->bncd", w.cpu(), Y).sum(1)
 
-        return out
+        return out.to(device)

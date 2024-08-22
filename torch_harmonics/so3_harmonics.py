@@ -3,12 +3,6 @@
 import numpy as np
 import torch
 from escnn.group.groups.so3_utils import _wigner_d_matrix, _grid
-from pytorch3d.transforms import (
-    axis_angle_to_matrix,
-    matrix_to_euler_angles,
-    euler_angles_to_matrix,
-    matrix_to_axis_angle,
-)
 
 from torch_harmonics.harmonic_function import HarmonicFunction
 
@@ -35,17 +29,11 @@ class SO3Harmonics(HarmonicFunction):
 
     def generate_basis_fns(self, coords: torch.Tensor = None):
         if coords is None:
-            grid = torch.from_numpy(
-                _grid("hopf", N=self.num_grid_points, parametrization="ZYZ")
-            ).float()
+            grid = _grid("hopf", N=self.num_grid_points, parametrization="ZYZ")
+            self.num_grid_points = grid.shape[0]
+            self.grid = grid
         else:
             pass
-        transform = euler_angles_to_matrix(
-            torch.tensor([0.0, 0.0, 1 * np.pi / 2.0]), "XYZ"
-        )
-        self.grid = matrix_to_euler_angles(
-            transform @ euler_angles_to_matrix(grid, "ZYZ"), "ZYZ"
-        ).numpy()
 
         D = []
         for l in range(self.L + 1):

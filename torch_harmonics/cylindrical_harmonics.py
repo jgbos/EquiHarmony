@@ -145,15 +145,23 @@ class CylindricalHarmonics(HarmonicFunction):
 
     def generate_basis_fns(self, coords: torch.Tensor = None) -> torch.Tensor:
         if coords is not None:
-            r2d, p2d, z2d = torch.meshgrid(
-                coords[:, 0], coords[:, 1], coords[:, 2], indexing="ij"
-            )
+            B = 1
+            R = coords.size(0)
+            P = 1
+            Z = 1
+            r2d = coords[:, 0].view(R, 1)
+            p2d = coords[:, 1].view(R, 1)
+            z2d = coords[:, 2].view(R, 1)
         else:
+            B = 1
+            R = self.num_radii
+            P = self.num_phi
+            Z = self.num_height
             r2d = self.r2d
             p2d = self.p2d
             z2d = self.z2d
 
-        Psi = torch.zeros((self.M, self.K, self.L * 2 + 1) + r2d.shape)
+        Psi = torch.zeros(B, self.M, self.K, self.L * 2 + 1, R, P, Z)
         for m in range(0, self.m[-1]):
             for i in range(0, len(self.l2d_flat)):
                 Psi_klm = get_Psi_klm(
@@ -166,12 +174,22 @@ class CylindricalHarmonics(HarmonicFunction):
                     self.Nkl_flat[i],
                 )
                 if self.l2d_flat[i] == 0:
-                    Psi[m, self.k2d_flat[i] - 1, self.l2d_flat[i]] = Psi_klm
+                    if coords is not None:
+                        Psi_klm = Psi_klm.view(-1, 1, 1)
+                    Psi[:, self.m[m] - 1, self.k2d_flat[i] - 1, self.l2d_flat[i]] = (
+                        Psi_klm
+                    )
                 else:
                     li = self.l2d_flat[i] * 2 - 1
-                    Psi[m, self.k2d_flat[i] - 1, li] = Psi_klm[0]
-                    Psi[m, self.k2d_flat[i] - 1, li + 1] = Psi_klm[1]
-        Psi = Psi.flatten(0, 2).unsqueeze(0)
+                    if coords is not None:
+                        Psi_klm_0 = Psi_klm[0].view(-1, 1, 1)
+                        Psi_klm_1 = Psi_klm[1].view(-1, 1, 1)
+                    else:
+                        Psi_klm_0 = Psi_klm[0]
+                        Psi_klm_1 = Psi_klm[1]
+                    Psi[:, self.m[m] - 1, self.k2d_flat[i] - 1, li] = Psi_klm_0
+                    Psi[:, self.m[m] - 1, self.k2d_flat[i] - 1, li + 1] = Psi_klm_1
+        Psi = Psi.flatten(1, 3)
 
         return Psi
 
@@ -179,7 +197,8 @@ class CylindricalHarmonics(HarmonicFunction):
         B = w.size(0)
 
         if coords is not None:
-            Psi = self.generate_basis_fns(coords).repeat(B, 1, 1, 1, 1)
+            Psi = self.generate_basis_fns(coords)
+            Psi = Psi.permute(2, 1, 0, 3, 4).to(w.device)
         else:
             Psi = self.Psi.repeat(B, 1, 1, 1, 1)
 
