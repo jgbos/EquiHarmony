@@ -167,8 +167,11 @@ def plot_spherical_fn(
     data: npt.NDArray,
     fig: Figure = None,
     title: str = None,
-    central_longitude=20,
-    central_latitude=20,
+    central_longitude: int = 20,
+    central_latitude: int = 20,
+    vmin: float = None,
+    vmax: float = None,
+    colorbar: bool = True,
 ):
     if fig is None:
         fig = plt.figure()
@@ -176,7 +179,7 @@ def plot_spherical_fn(
     nlat = data.shape[-2]
     nlon = data.shape[-1]
     lon = np.linspace(0, 2 * np.pi, nlon)
-    lat = np.linspace(np.pi / 2.0, -np.pi / 2.0, nlat)
+    lat = np.linspace(-np.pi / 2.0, np.pi / 2.0, nlat)
     Lon, Lat = np.meshgrid(lon, lat)
 
     proj = ccrs.Orthographic(
@@ -195,6 +198,8 @@ def plot_spherical_fn(
         cmap="RdBu",
         transform=ccrs.PlateCarree(),
         antialiased=False,
+        vmin=vmin,
+        vmax=vmax,
     )
     if False:
         ax.add_feature(
@@ -203,7 +208,7 @@ def plot_spherical_fn(
             facecolor="none",
             linewidth=1.5,
         )
-    if False:
+    if colorbar:
         plt.colorbar(im)
     plt.title(title, y=1.05)
 
