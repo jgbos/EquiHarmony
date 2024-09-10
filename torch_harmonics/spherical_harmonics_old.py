@@ -30,7 +30,9 @@ class SphericalHarmonics(HarmonicFunction):
         self.num_lon = num_lon
 
         Y = nn.Parameter(
-            self.generate_basis_fns().permute(0, 2, 1), requires_grad=False
+            # self.generate_basis_fns().permute(0, 2, 1), requires_grad=False
+            self.generate_basis_fns(),
+            requires_grad=False,
         )
         self.register_buffer("Y", Y, persistent=False)
 
@@ -75,7 +77,8 @@ class SphericalHarmonics(HarmonicFunction):
             Y = self.generate_basis_fns(coords.cpu()).permute(1, 0, 2).unsqueeze(3)
             Y = Y.to(w.device)
         else:
-            Y = self.Y.repeat(B, 1, 1, 1)
+            Y = self.Y.unsqueeze(0)
+            Y = Y.expand(B, Y.size(1), Y.size(2), Y.size(3))
 
         out = torch.einsum("bn,bncd->bncd", w, Y).sum(1)
 
