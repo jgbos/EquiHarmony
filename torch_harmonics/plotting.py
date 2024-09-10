@@ -210,6 +210,45 @@ def plot_spherical_fn(
         )
     if colorbar:
         plt.colorbar(im)
-    plt.title(title, y=1.05)
+    ax.set_title(title, y=1.05, fontsize=30)
+
+    return im
+
+
+def plot_mollweide_spherical_fn(
+    data: npt.NDArray,
+    fig: Figure = None,
+    title: str = None,
+    vmin: float = None,
+    vmax: float = None,
+    colorbar: bool = True,
+):
+    if fig is None:
+        fig = plt.figure()
+
+    nlon = data.shape[-1]
+    nlat = data.shape[-2]
+    lon = np.linspace(-np.pi, np.pi, nlon)
+    lat = np.linspace(-np.pi / 2.0, np.pi / 2.0, nlat)
+    Lon, Lat = np.meshgrid(lon, lat)
+
+    ax = fig.add_subplot(projection="mollweide")
+
+    # contour data over the map.
+    im = ax.pcolormesh(
+        Lon,
+        Lat,
+        data.permute(1, 0),
+        cmap="RdBu",
+        vmin=vmin,
+        vmax=vmax,
+    )
+    ax.grid(True)
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+
+    if colorbar:
+        plt.colorbar(im)
+    ax.set_title(title, y=1.05, fontsize=30)
 
     return im

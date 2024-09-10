@@ -29,18 +29,21 @@ class SphericalHarmonics(HarmonicFunction):
         self.num_lat = num_lat
         self.num_lon = num_lon
 
-        self.Y = nn.Parameter(self.generate_basis_fns(), requires_grad=False)
+        Y = nn.Parameter(
+            self.generate_basis_fns().permute(0, 2, 1), requires_grad=False
+        )
+        self.register_buffer("Y", Y, persistent=False)
 
     def generate_basis_fns(self, coords: torch.Tensor = None) -> torch.Tensor:
         if coords is None:
-            alpha, beta = np.meshgrid(
+            theta, phi = np.meshgrid(
                 np.linspace(0, 2 * np.pi, self.num_lon),
-                np.linspace(-np.pi / 2.0, np.pi / 2.0, self.num_lat),
+                np.linspace(0, np.pi, self.num_lat),
             )
             # beta, alpha = S2.meshgrid(self.num_lat)
         else:
-            beta = coords[:, 1].unsqueeze(1)
-            alpha = coords[:, 0].unsqueeze(1)
+            theta = coords[:, 0].unsqueeze(1)
+            phi = coords[:, 1].unsqueeze(1)
 
         irreps = np.arange(self.L + 1)
         ls = [[ls] * (2 * ls + 1) for ls in irreps]
@@ -56,8 +59,8 @@ class SphericalHarmonics(HarmonicFunction):
         Y = spherical_harmonics.sh(
             ls[:, None, None],
             ms[:, None, None],
-            beta[None, :, :],
-            alpha[None, :, :],
+            phi[None, :, :],
+            theta[None, :, :],
             field="real",
             normalization="quantum",
             condon_shortley=True,
@@ -69,45 +72,10 @@ class SphericalHarmonics(HarmonicFunction):
         B = w.size(0)
 
         if coords is not None:
-            Y = self.generate_basis_fns(coords).permute(1, 0, 2).unsqueeze(3)
+            Y = self.generate_basis_fns(coords.cpu()).permute(1, 0, 2).unsqueeze(3)
             Y = Y.to(w.device)
         else:
             Y = self.Y.repeat(B, 1, 1, 1)
-            # Y = self.generate_basis_fns().repeat(B, 1, 1, 1).to(w.device)
-
-        # alpha, beta = np.meshgrid(
-        #    np.linspace(0, 2 * np.pi, self.num_lon),
-        #    np.linspace(0, 2 * np.pi, self.num_lat),
-        # )
-        # out = torch.zeros(B, self.num_lat, self.num_lon).cuda()
-
-        # l_idx = 0
-        # for l in range(self.L + 1):
-        #    irreps = [l]
-        #    ls = [[ls] * (2 * ls + 1) for ls in irreps]
-        #    ls = np.array(
-        #        [ll for sublist in ls for ll in sublist]
-        #    )  # 0, 1, 1, 1, 2, 2, 2, 2, 2, ...
-
-        #    ms = [list(range(-ls, ls + 1)) for ls in irreps]
-        #    ms = np.array(
-        #        [mm for sublist in ms for mm in sublist]
-        #    )  # 0, -1, 0, 1, -2, -1, 0, 1, 2, ...
-
-        #    Y = spherical_harmonics.sh(
-        #        ls[:, None, None],
-        #        ms[:, None, None],
-        #        beta[None, :, :],
-        #        alpha[None, :, :],
-        #        field="real",
-        #        normalization="quantum",
-        #        condon_shortley=True,
-        #    )
-
-        #    Y = torch.tensor(Y).unsqueeze(0).repeat(B, 1, 1, 1).cuda()
-        #    w_l = w[:, l_idx : l_idx + (2 * l + 1)].view(B, -1)
-        #    out += torch.einsum("bn,bncd->bncd", w_l, Y).sum(1)
-        #    l_idx += 2 * l + 1
 
         out = torch.einsum("bn,bncd->bncd", w, Y).sum(1)
 
