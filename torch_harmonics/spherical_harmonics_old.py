@@ -30,7 +30,7 @@ class SphericalHarmonics(HarmonicFunction):
         self.num_lon = num_lon
 
         #Y = self.generate_basis_fns().permute(0, 2, 1)
-        Y = self.generate_basis_fns(),
+        Y = self.generate_basis_fns()
         self.register_buffer("Y", Y, persistent=False)
 
     def generate_basis_fns(self, coords: torch.Tensor = None) -> torch.Tensor:
