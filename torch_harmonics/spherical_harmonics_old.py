@@ -29,11 +29,8 @@ class SphericalHarmonics(HarmonicFunction):
         self.num_lat = num_lat
         self.num_lon = num_lon
 
-        Y = nn.Parameter(
-            # self.generate_basis_fns().permute(0, 2, 1), requires_grad=False
-            self.generate_basis_fns(),
-            requires_grad=False,
-        )
+        #Y = self.generate_basis_fns().permute(0, 2, 1)
+        Y = self.generate_basis_fns(),
         self.register_buffer("Y", Y, persistent=False)
 
     def generate_basis_fns(self, coords: torch.Tensor = None) -> torch.Tensor:
