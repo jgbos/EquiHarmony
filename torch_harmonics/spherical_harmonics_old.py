@@ -22,27 +22,35 @@ class SphericalHarmonics(HarmonicFunction):
        num_lon - Number of elements on the longitudinal axis.
     """
 
-    def __init__(self, L: int, M: int, num_lat: int = 360, num_lon: int = 360):
+    def __init__(
+        self, L: int, grid_type="lie_learn", num_theta: int = 360, num_phi: int = 360
+    ):
         super().__init__()
 
         self.L = L
-        self.num_lat = num_lat
-        self.num_lon = num_lon
+        self.grid_type = grid_type
+        self.num_theta = num_theta
+        self.num_phi = num_phi
 
-        #Y = self.generate_basis_fns().permute(0, 2, 1)
-        Y = self.generate_basis_fns()
-        self.register_buffer("Y", Y, persistent=False)
+        self.Y = self.generate_basis_fns()
+        # self.register_buffer("Y", Y, persistent=False)
 
     def generate_basis_fns(self, coords: torch.Tensor = None) -> torch.Tensor:
         if coords is None:
-            theta, phi = np.meshgrid(
-                np.linspace(0, 2 * np.pi, self.num_lon),
-                np.linspace(0, np.pi, self.num_lat),
-            )
-            # beta, alpha = S2.meshgrid(self.num_lat)
+            if self.grid_type == "lie_learn":
+                self.grid = S2.meshgrid(self.num_theta, grid_type="Driscoll-Healy")
+                self.num_theta = self.grid[0].shape[0]
+                self.num_phi = self.grid[0].shape[1]
+            else:
+                self.grid = np.meshgrid(
+                    np.linspace(0, np.pi, self.num_theta),
+                    np.linspace(0, 2 * np.pi, self.num_phi),
+                )
+
+            theta, phi = self.grid
         else:
-            theta = coords[:, 0].unsqueeze(1)
-            phi = coords[:, 1].unsqueeze(1)
+            theta = coords[:, 0].view(-1, 1)
+            phi = coords[:, 1].view(-1, 1)
 
         irreps = np.arange(self.L + 1)
         ls = [[ls] * (2 * ls + 1) for ls in irreps]
@@ -58,8 +66,8 @@ class SphericalHarmonics(HarmonicFunction):
         Y = spherical_harmonics.sh(
             ls[:, None, None],
             ms[:, None, None],
-            phi[None, :, :],
             theta[None, :, :],
+            phi[None, :, :],
             field="real",
             normalization="quantum",
             condon_shortley=True,
@@ -71,10 +79,11 @@ class SphericalHarmonics(HarmonicFunction):
         B = w.size(0)
 
         if coords is not None:
-            Y = self.generate_basis_fns(coords.cpu()).permute(1, 0, 2).unsqueeze(3)
+            Y = self.generate_basis_fns(coords.cpu())
+            Y = Y.permute(1, 0, 2).unsqueeze(3)
             Y = Y.to(w.device)
         else:
-            Y = self.Y.unsqueeze(0)
+            Y = self.Y.unsqueeze(0).to(w.device)
             Y = Y.expand(B, Y.size(1), Y.size(2), Y.size(3))
 
         out = torch.einsum("bn,bncd->bncd", w, Y).sum(1)

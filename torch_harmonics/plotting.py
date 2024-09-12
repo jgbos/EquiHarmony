@@ -238,7 +238,7 @@ def plot_mollweide_spherical_fn(
     im = ax.pcolormesh(
         Lon,
         Lat,
-        data.permute(1, 0),
+        data,
         cmap="RdBu",
         vmin=vmin,
         vmax=vmax,
