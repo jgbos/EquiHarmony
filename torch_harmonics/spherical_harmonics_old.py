@@ -32,8 +32,8 @@ class SphericalHarmonics(HarmonicFunction):
         self.num_theta = num_theta
         self.num_phi = num_phi
 
-        self.Y = self.generate_basis_fns()
-        # self.register_buffer("Y", Y, persistent=False)
+        Y = self.generate_basis_fns()
+        self.register_buffer("Y", Y, persistent=False)
 
     def generate_basis_fns(self, coords: torch.Tensor = None) -> torch.Tensor:
         if coords is None:
@@ -41,13 +41,15 @@ class SphericalHarmonics(HarmonicFunction):
                 self.grid = S2.meshgrid(self.num_theta, grid_type="Driscoll-Healy")
                 self.num_theta = self.grid[0].shape[0]
                 self.num_phi = self.grid[0].shape[1]
+
+                theta, phi = self.grid
             else:
                 self.grid = np.meshgrid(
                     np.linspace(0, np.pi, self.num_theta),
                     np.linspace(0, 2 * np.pi, self.num_phi),
                 )
 
-            theta, phi = self.grid
+                theta, phi = self.grid
         else:
             theta = coords[:, 0].view(-1, 1)
             phi = coords[:, 1].view(-1, 1)
@@ -83,7 +85,7 @@ class SphericalHarmonics(HarmonicFunction):
             Y = Y.permute(1, 0, 2).unsqueeze(3)
             Y = Y.to(w.device)
         else:
-            Y = self.Y.unsqueeze(0).to(w.device)
+            Y = self.Y.unsqueeze(0)
             Y = Y.expand(B, Y.size(1), Y.size(2), Y.size(3))
 
         out = torch.einsum("bn,bncd->bncd", w, Y).sum(1)

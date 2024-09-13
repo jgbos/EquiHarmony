@@ -176,8 +176,8 @@ def plot_spherical_fn(
     if fig is None:
         fig = plt.figure()
 
-    nlat = data.shape[-2]
     nlon = data.shape[-1]
+    nlat = data.shape[-2]
     lon = np.linspace(0, 2 * np.pi, nlon)
     lat = np.linspace(-np.pi / 2.0, np.pi / 2.0, nlat)
     Lon, Lat = np.meshgrid(lon, lat)
