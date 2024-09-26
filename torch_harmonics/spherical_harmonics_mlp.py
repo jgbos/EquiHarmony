@@ -32,6 +32,8 @@ class SphericalHarmonics(HarmonicFunction):
         self.num_theta = num_theta
         self.num_phi = num_phi
 
+        self.mlp = nn.Linear(L, L)
+
         Y = self.generate_basis_fns()
         self.register_buffer("Y", Y, persistent=False)
 
@@ -88,6 +90,19 @@ class SphericalHarmonics(HarmonicFunction):
             Y = self.Y.unsqueeze(0)
             Y = Y.expand(B, Y.size(1), Y.size(2), Y.size(3))
 
-        out = torch.einsum("bn,bncd->bncd", w, Y).sum(1)
+        out = torch.zeros((B, self.L, self.num_phi, self.num_theta), device=w.device)
+        li = 0
+        for l in range(self.L):
+            if l == 0:
+                w_l = w[:, 0:1]
+                Y_l = Y[:, 0:1, :, :]
+            else:
+                w_l = w[:, li : (l + 1) ** 2]
+                Y_l = Y[:, li : (l + 1) ** 2, :, :]
+            out[:, l] = torch.einsum("bn,bncd->bncd", w_l, Y_l).sum(1)
+            li = (l + 1) ** 2
+
+        out = self.mlp(out.permute(0, 2, 3, 1).reshape(-1, self.L))
+        out = out.view(B, self.num_phi, self.num_theta, self.L).sum(-1)
 
         return out

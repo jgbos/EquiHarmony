@@ -201,6 +201,19 @@ def plot_spherical_fn(
         vmin=vmin,
         vmax=vmax,
     )
+
+    # x_grid = np.arange(-180, 180, 20)
+    # y_grid = np.arange(-180, 180, 20)
+    # gl = ax.gridlines(
+    #    crs=ccrs.PlateCarree(),
+    #    draw_labels=False,
+    #    linewidth=2,
+    #    color="gray",
+    #    alpha=0.5,
+    #    linestyle="--",
+    #    xlocs=x_grid,
+    #    ylocs=y_grid,
+    # )
     if False:
         ax.add_feature(
             cartopy.feature.COASTLINE,
