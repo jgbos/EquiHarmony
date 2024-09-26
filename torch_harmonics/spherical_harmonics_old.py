@@ -78,16 +78,16 @@ class SphericalHarmonics(HarmonicFunction):
         return torch.tensor(Y).float()
 
     def forward(self, w: torch.Tensor, coords: torch.Tensor = None) -> torch.Tensor:
-        B = w.size(0)
+        B, R, _ = w.shape
 
         if coords is not None:
             Y = self.generate_basis_fns(coords.cpu())
             Y = Y.permute(1, 0, 2).unsqueeze(3)
             Y = Y.to(w.device)
         else:
-            Y = self.Y.unsqueeze(0)
-            Y = Y.expand(B, Y.size(1), Y.size(2), Y.size(3))
+            Y = self.Y.view(1, 1, *self.Y.shape)
+            Y = Y.expand(B, R, Y.size(2), Y.size(3), Y.size(4))
 
-        out = torch.einsum("bn,bncd->bncd", w, Y).sum(1)
+        out = torch.einsum("brn,brncd->brcd", w, Y)
 
         return out
