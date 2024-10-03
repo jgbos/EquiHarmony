@@ -82,12 +82,12 @@ class SphericalHarmonics(HarmonicFunction):
 
         if coords is not None:
             Y = self.generate_basis_fns(coords.cpu())
-            Y = Y.permute(1, 0, 2).unsqueeze(3)
+            Y = Y.permute(1, 0, 2).unsqueeze(3).unsqueeze(1)
             Y = Y.to(w.device)
         else:
             Y = self.Y.view(1, 1, *self.Y.shape)
             Y = Y.expand(B, R, Y.size(2), Y.size(3), Y.size(4))
 
-        out = torch.einsum("brn,brncd->brcd", w, Y)
+        out = torch.einsum("brn,brncd->brncd", w, Y).sum(2)
 
         return out
