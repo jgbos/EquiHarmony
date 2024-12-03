@@ -1,4 +1,4 @@
-# torch-harmonics
+# EquiHarmony
 PyTorch modules for computing functions using Fourier analysis to decompose functions into coefficients and basis functions.
 
 Currently implements the following systems:
