@@ -3,7 +3,7 @@
 import numpy as np
 import torch
 from torch import nn
-from torch_harmonics.harmonic_function import HarmonicFunction
+from eharmony.harmonic_function import HarmonicFunction
 
 
 class CircularHarmonics(HarmonicFunction):

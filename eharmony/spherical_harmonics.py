@@ -7,7 +7,7 @@ from torch import nn
 from lie_learn.representations.SO3 import spherical_harmonics
 from lie_learn.spaces import S2
 
-from torch_harmonics.harmonic_function import HarmonicFunction
+from eharmony.harmonic_function import HarmonicFunction
 
 
 class SphericalHarmonics(HarmonicFunction):
@@ -18,12 +18,17 @@ class SphericalHarmonics(HarmonicFunction):
 
     Args:
        L - Maximum angular frequency.
-       num_lat - Number of elements on the latitudinal axis.
-       num_lon - Number of elements on the longitudinal axis.
+       grid_type - Type of grid to generate on the sphere.
+       num_theta - Number of elements on the latitudinal axis.
+       num_phi - Number of elements on the longitudinal axis.
     """
 
     def __init__(
-        self, L: int, grid_type="lie_learn", num_theta: int = 360, num_phi: int = 360
+        self,
+        L: int,
+        grid_type: str = "lie_learn",
+        num_theta: int = 360,
+        num_phi: int = 360,
     ):
         super().__init__()
 

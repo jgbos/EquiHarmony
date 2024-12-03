@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from escnn.group.groups.so3_utils import _wigner_d_matrix, _grid
 
-from torch_harmonics.harmonic_function import HarmonicFunction
+from eharmony.harmonic_function import HarmonicFunction
 
 
 class SO3Harmonics(HarmonicFunction):

@@ -3,9 +3,9 @@
 import torch
 from torch import nn
 
-from torch_harmonics.harmonic_function import HarmonicFunction
-from torch_harmonics import bessel, grid
-from torch_harmonics.polar_harmonics import (
+from eharmony.harmonic_function import HarmonicFunction
+from eharmony import bessel, grid
+from eharmony.polar_harmonics import (
     get_l,
     get_k,
     get_zkl,

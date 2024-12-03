@@ -7,7 +7,7 @@ from torch import nn
 from lie_learn.representations.SO3 import spherical_harmonics
 from lie_learn.spaces import S2
 
-from torch_harmonics.harmonic_function import HarmonicFunction
+from eharmony.harmonic_function import HarmonicFunction
 
 
 class RadialSphericalHarmonics(HarmonicFunction):

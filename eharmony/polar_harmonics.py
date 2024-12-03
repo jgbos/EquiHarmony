@@ -4,8 +4,8 @@ import math
 import torch
 from torch import nn
 
-from torch_harmonics.harmonic_function import HarmonicFunction
-from torch_harmonics import bessel, grid
+from eharmony.harmonic_function import HarmonicFunction
+from eharmony import bessel, grid
 
 
 def get_k(k_max: int) -> torch.Tensor:
