@@ -1,0 +1,22 @@
+[project]
+name = "eharmony"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Justin Goodwin", email = "jgoodwin314@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "lie-learn",
+    "scipy>=1.17.1",
+    "torch>=2.10.0",
+    "torch-harmonics>=0.8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+lie-learn = { git = "https://github.com/AMLab-Amsterdam/lie_learn" }

@@ -2,7 +2,6 @@
 
 import math
 import torch
-from torch import nn
 
 from eharmony.harmonic_function import HarmonicFunction
 from eharmony import bessel, grid
