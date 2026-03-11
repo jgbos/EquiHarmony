@@ -219,6 +219,5 @@ def plot_mollweide_spherical_fn(data: npt.NDArray, ax: Axes | None = None, color
 
     if colorbar:
         plt.colorbar(im)
-    ax.set_title(title, y=1.05, fontsize=30)
 
     return im

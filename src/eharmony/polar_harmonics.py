@@ -1,10 +1,11 @@
 """ polar_harmonics.py """
 
 import math
+
 import torch
 
-from eharmony.harmonic_function import HarmonicFunction
 from eharmony import bessel, grid
+from eharmony.harmonic_function import HarmonicFunction
 
 
 def get_k(k_max: int) -> torch.Tensor:

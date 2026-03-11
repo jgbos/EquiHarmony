@@ -2,7 +2,6 @@
 
 import numpy as np
 import torch
-
 from lie_learn.representations.SO3 import spherical_harmonics
 
 from eharmony.harmonic_function import HarmonicFunction

@@ -2,10 +2,9 @@
 
 import numpy as np
 import torch
-from torch import nn
-
 from lie_learn.representations.SO3 import spherical_harmonics
 from lie_learn.spaces import S2
+from torch import nn
 
 from eharmony.harmonic_function import HarmonicFunction
 
@@ -100,7 +99,7 @@ class SphericalHarmonics(HarmonicFunction):
             else:
                 w_l = w[:, li : (l + 1) ** 2]
                 Y_l = Y[:, li : (l + 1) ** 2, :, :]
-            out[:, :, :, L, :] = torch.einsum("brn,brncd->bcdr", w_l, Y_l)
+            out[:, :, :, self.L, :] = torch.einsum("brn,brncd->bcdr", w_l, Y_l)
             li = (l + 1) ** 2
 
         out = self.mlp(out.flatten(start_dim=-2))

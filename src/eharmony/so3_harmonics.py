@@ -1,8 +1,7 @@
 """ so3_harmoincs.py """
 
-import numpy as np
 import torch
-from escnn.group.groups.so3_utils import _wigner_d_matrix, _grid
+from escnn.group.groups.so3_utils import _grid, _wigner_d_matrix
 
 from eharmony.harmonic_function import HarmonicFunction
 

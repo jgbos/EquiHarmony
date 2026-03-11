@@ -2,8 +2,6 @@
 
 import numpy as np
 import torch
-from torch import nn
-
 from lie_learn.representations.SO3 import spherical_harmonics
 from lie_learn.spaces import S2
 
