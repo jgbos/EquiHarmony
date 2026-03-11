@@ -8,8 +8,8 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
-    "cartopy>=0.25.0",
     "lie-learn",
+    "matplotlib>=3.10.8",
     "scipy>=1.17.1",
     "torch>=2.10.0",
     "torch-harmonics>=0.8.0",
@@ -24,7 +24,27 @@ lie-learn = { git = "https://github.com/jgbos/lie_learn", rev = "justin" }
 
 [dependency-groups]
 dev = [
+    "cartopy>=0.25.0",
     "ipykernel>=7.2.0",
     "ipywidgets>=8.1.8",
     "matplotlib>=3.10.8",
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint.isort]
+known-first-party = ["athena", "tests"]
+
+[tool.ruff.lint]
+# Enable all common rules (E, F, I) as a baseline
+select = ["E", "F", "I"]
+# Ignore specific rules across the entire project
+ignore = [
+    "E501",  # Disable line too long checks (if you use a formatter like Black)
+    "D100",  # Disable missing public module documentation
+    "D101",  # Disable missing public class documentation
+    "E722",  # Disable bare `except`
+    "E731",  # Disable lambda to def
+    "E741",  # Disable ambiguous variable name
 ]

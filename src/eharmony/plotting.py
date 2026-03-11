@@ -1,23 +1,16 @@
-""" plotting.py """
-
-import numpy as np
-from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
-from scipy.interpolate import LinearNDInterpolator
-import cartopy
-import cartopy.crs as ccrs
-
+import numpy as np
 import numpy.typing as npt
+from matplotlib.axes import Axes
+from mpl_toolkits.mplot3d.axes3d import Axes3D
+from scipy.interpolate import LinearNDInterpolator
 
 
-def plot_circular_fn(
-    data: npt.NDArray, fig: Figure = None, title: str = None, plot_neg: bool = False
-):
+def plot_circular_fn(data: npt.NDArray, ax: Axes | None = None, plot_neg: bool = False):
     """Plot circular function"""
-    if fig is None:
+    if ax is None:
         fig = plt.figure()
-
-    ax = fig.add_subplot(projection="polar")
+        ax = fig.add_subplot(projection="polar")
 
     x = np.linspace(0, 2 * np.pi, data.shape[0])
     if plot_neg:
@@ -32,8 +25,6 @@ def plot_circular_fn(
 
     ax.set_rmax(np.max(data) + 0.2)
     ax.set_rticks([])
-
-    ax.set_title(title, va="bottom")
     ax.grid(True)
     return ax
 
@@ -42,39 +33,36 @@ def plot_polar_fn(
     data: npt.NDArray,
     r: npt.NDArray = None,
     phi: npt.NDArray = None,
-    vmin: float = None,
-    vmax: float = None,
-    fig: Figure = None,
-    title: str = None,
+    ax: Axes | None = None,
+    **kwargs,
 ):
     """Plot polar function"""
-    if fig is None:
+    if ax is None:
         fig = plt.figure()
-
-    ax = fig.add_subplot(projection="polar")
+        ax = fig.add_subplot(projection="polar")
 
     if r is None:
         r = np.linspace(0, 1, data.shape[0])
     if phi is None:
         phi = np.linspace(0, 2 * np.pi, data.shape[1])
-    ax.pcolormesh(phi, r, data, vmin=vmin, vmax=vmax)
 
-    ax.set_title(title, va="bottom")
     ax.grid(False)
     ax.set_yticklabels([])
     ax.set_xticklabels([])
 
-    return ax
+    return ax.pcolormesh(phi, r, data, **kwargs)
 
 
 def plot_cylinder_fn(
-    data: npt.NDArray, fig: Figure = None, title: str = None, vmin=None, vmax=None
+    data: npt.NDArray,
+    ax: Axes3D | None = None,
+    **kwargs,
 ):
     """Plot cylinder function"""
-    if fig is None:
+    if ax is None:
         fig = plt.figure()
+        ax = fig.add_subplot(projection="3d")
 
-    ax = fig.add_subplot(projection="3d")
     ax.xaxis.pane.fill = False
     ax.yaxis.pane.fill = False
     ax.zaxis.pane.fill = False
@@ -98,34 +86,27 @@ def plot_cylinder_fn(
     idata[np.isnan(idata)] = 0
     mask = idata != 0.0
 
-    plot = ax.scatter(
+    return ax.scatter(
         X.flatten(),
         Y.flatten(),
         Z.flatten(),
         c=idata.flatten(),
         s=10.0 * mask,
-        vmin=vmin,
-        vmax=vmax,
         edgecolor="face",
         alpha=0.2,
         marker="o",
         cmap="magma",
         linewidth=0,
+        **kwargs,
     )
 
-    ax.set_title(title, va="bottom")
 
-    return ax
-
-
-def plot_cylinder_prob(
-    data: npt.NDArray, fig: Figure = None, title: str = None, vmin=None, vmax=None
-):
+def plot_cylinder_prob(data: npt.NDArray, ax: Axes3D | None = None, **kwargs):
     """Plot cylinder function"""
-    if fig is None:
+    if ax is None:
         fig = plt.figure()
+        ax = fig.add_subplot(projection="3d")
 
-    ax = fig.add_subplot(projection="3d")
     ax.xaxis.pane.fill = False
     ax.yaxis.pane.fill = False
     ax.zaxis.pane.fill = False
@@ -143,38 +124,36 @@ def plot_cylinder_prob(
     data[np.isnan(data)] = 0
     mask = data > np.mean(data)
 
-    plot = ax.scatter(
+    return ax.scatter(
         xs.flatten(),
         ys.flatten(),
         zs.flatten(),
         c=data.flatten(),
         s=10.0 * mask,
-        vmin=vmin,
-        vmax=vmax,
         edgecolor="face",
         alpha=0.2,
         marker="o",
         cmap="magma",
         linewidth=0,
+        **kwargs,
     )
-
-    ax.set_title(title, va="bottom")
-
-    return ax
 
 
 def plot_spherical_fn(
     data: npt.NDArray,
-    fig: Figure = None,
-    title: str = None,
+    ax: Axes | None = None,
     central_longitude: int = 20,
     central_latitude: int = 20,
-    vmin: float = None,
-    vmax: float = None,
     colorbar: bool = True,
+    **kwargs,
 ):
-    if fig is None:
+    import cartopy
+    import cartopy.crs as ccrs
+
+    if ax is None:
         fig = plt.figure()
+        proj = ccrs.Orthographic(central_longitude=central_longitude, central_latitude=central_latitude)
+        ax = fig.add_subplot(projection=proj)
 
     nlon = data.shape[-1]
     nlat = data.shape[-2]
@@ -182,11 +161,6 @@ def plot_spherical_fn(
     lat = np.linspace(-np.pi / 2.0, np.pi / 2.0, nlat)
     Lon, Lat = np.meshgrid(lon, lat)
 
-    proj = ccrs.Orthographic(
-        central_longitude=central_longitude, central_latitude=central_latitude
-    )
-
-    ax = fig.add_subplot(projection=proj)
     Lon = Lon * 180 / np.pi
     Lat = Lat * 180 / np.pi
 
@@ -198,8 +172,7 @@ def plot_spherical_fn(
         cmap="RdBu",
         transform=ccrs.PlateCarree(),
         antialiased=False,
-        vmin=vmin,
-        vmax=vmax,
+        **kwargs,
     )
 
     # x_grid = np.arange(-180, 180, 20)
@@ -223,21 +196,14 @@ def plot_spherical_fn(
         )
     if colorbar:
         plt.colorbar(im)
-    ax.set_title(title, y=1.05, fontsize=30)
 
     return im
 
 
-def plot_mollweide_spherical_fn(
-    data: npt.NDArray,
-    fig: Figure = None,
-    title: str = None,
-    vmin: float = None,
-    vmax: float = None,
-    colorbar: bool = True,
-):
-    if fig is None:
+def plot_mollweide_spherical_fn(data: npt.NDArray, ax: Axes | None = None, colorbar: bool = True, **kwargs):
+    if ax is None:
         fig = plt.figure()
+        ax = fig.add_subplot(projection="mollweide")
 
     nlon = data.shape[-1]
     nlat = data.shape[-2]
@@ -245,17 +211,8 @@ def plot_mollweide_spherical_fn(
     lat = np.linspace(-np.pi / 2.0, np.pi / 2.0, nlat)
     Lon, Lat = np.meshgrid(lon, lat)
 
-    ax = fig.add_subplot(projection="mollweide")
-
     # contour data over the map.
-    im = ax.pcolormesh(
-        Lon,
-        Lat,
-        data,
-        cmap="RdBu",
-        vmin=vmin,
-        vmax=vmax,
-    )
+    im = ax.pcolormesh(Lon, Lat, data, cmap="RdBu", **kwargs)
     ax.grid(True)
     ax.set_xticklabels([])
     ax.set_yticklabels([])
