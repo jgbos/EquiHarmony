@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "Justin Goodwin", email = "jgoodwin314@gmail.com" }
 ]
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 dependencies = [
     "lie-learn",
     "matplotlib>=3.10.8",
@@ -35,7 +35,7 @@ dev = [
 line-length = 120
 
 [tool.ruff.lint.isort]
-known-first-party = ["athena", "tests"]
+known-first-party = ["eharmony", "tests"]
 
 [tool.ruff.lint]
 # Enable all common rules (E, F, I) as a baseline
