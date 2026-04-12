@@ -84,7 +84,7 @@ class SphericalHarmonics(HarmonicFunction):
             condon_shortley=self.condon_shortley,
         )
 
-        return torch.tensor(Y).float()
+        return torch.tensor(Y)
 
     def forward(self, w: torch.Tensor, coords: torch.Tensor = None) -> torch.Tensor:
         B, R, _ = w.shape
