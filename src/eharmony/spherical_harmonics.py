@@ -1,4 +1,4 @@
-""" spherical_harmonics.py  """
+"""spherical_harmonics.py"""
 
 import numpy as np
 import torch
@@ -65,14 +65,10 @@ class SphericalHarmonics(HarmonicFunction):
 
         irreps = np.arange(self.L + 1)
         ls = [[ls] * (2 * ls + 1) for ls in irreps]
-        ls = np.array(
-            [ll for sublist in ls for ll in sublist]
-        )  # 0, 1, 1, 1, 2, 2, 2, 2, 2, ...
+        ls = np.array([ll for sublist in ls for ll in sublist])  # 0, 1, 1, 1, 2, 2, 2, 2, 2, ...
 
         ms = [list(range(-ls, ls + 1)) for ls in irreps]
-        ms = np.array(
-            [mm for sublist in ms for mm in sublist]
-        )  # 0, -1, 0, 1, -2, -1, 0, 1, 2, ...
+        ms = np.array([mm for sublist in ms for mm in sublist])  # 0, -1, 0, 1, -2, -1, 0, 1, 2, ...
 
         Y = spherical_harmonics.sh(
             ls[:, None, None],
@@ -84,7 +80,12 @@ class SphericalHarmonics(HarmonicFunction):
             condon_shortley=self.condon_shortley,
         )
 
-        return torch.tensor(Y)
+        if self.field == "real":
+            Y = torch.tensor(Y.real, dtype=torch.float32)
+        else:
+            Y = torch.tensor(Y, dtype=torch.complex64)
+
+        return Y
 
     def forward(self, w: torch.Tensor, coords: torch.Tensor = None) -> torch.Tensor:
         B, R, _ = w.shape
