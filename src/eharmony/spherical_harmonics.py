@@ -27,6 +27,9 @@ class SphericalHarmonics(HarmonicFunction):
         grid_type: str = "lie_learn",
         num_theta: int = 360,
         num_phi: int = 360,
+        field: str = "real",
+        normalization: str = "quantum",
+        condon_shortley: bool = True,
     ):
         super().__init__()
 
@@ -34,6 +37,9 @@ class SphericalHarmonics(HarmonicFunction):
         self.grid_type = grid_type
         self.num_theta = num_theta
         self.num_phi = num_phi
+        self.field = field
+        self.normalization = normalization
+        self.condon_shortley = condon_shortley
 
         Y = self.generate_basis_fns()
         self.register_buffer("Y", Y, persistent=False)
@@ -73,9 +79,9 @@ class SphericalHarmonics(HarmonicFunction):
             ms[:, None, None],
             theta[None, :, :],
             phi[None, :, :],
-            field="real",
-            normalization="quantum",
-            condon_shortley=True,
+            field=self.field,
+            normalization=self.normalization,
+            condon_shortley=self.condon_shortley,
         )
 
         return torch.tensor(Y).float()
