@@ -1,12 +1,14 @@
-""" spherical_harmonics.py  """
+"""spherical_harmonics.py"""
+
+from typing import cast
 
 import numpy as np
 import torch
-from lie_learn.representations.SO3 import spherical_harmonics
 from lie_learn.spaces import S2
 from torch import nn
 
 from eharmony.harmonic_function import HarmonicFunction
+from eharmony.spherical_harmonics_backend import sh as spherical_harmonics_sh
 
 
 class SphericalHarmonics(HarmonicFunction):
@@ -22,7 +24,14 @@ class SphericalHarmonics(HarmonicFunction):
     """
 
     def __init__(
-        self, L: int, grid_type="lie_learn", num_theta: int = 360, num_phi: int = 360
+        self,
+        L: int,
+        grid_type="lie_learn",
+        num_theta: int = 360,
+        num_phi: int = 360,
+        field: str = "real",
+        normalization: str = "quantum",
+        condon_shortley: bool = True,
     ):
         super().__init__()
 
@@ -30,13 +39,15 @@ class SphericalHarmonics(HarmonicFunction):
         self.grid_type = grid_type
         self.num_theta = num_theta
         self.num_phi = num_phi
-
+        self.field = field
+        self.normalization = normalization
+        self.condon_shortley = condon_shortley
         self.mlp = nn.Linear(L, L)
 
         Y = self.generate_basis_fns()
         self.register_buffer("Y", Y, persistent=False)
 
-    def generate_basis_fns(self, coords: torch.Tensor = None) -> torch.Tensor:
+    def generate_basis_fns(self, coords: torch.Tensor | None = None) -> torch.Tensor:
         if coords is None:
             if self.grid_type == "lie_learn":
                 self.grid = S2.meshgrid(self.num_theta, grid_type="Driscoll-Healy")
@@ -45,40 +56,39 @@ class SphericalHarmonics(HarmonicFunction):
 
                 theta, phi = self.grid
             else:
-                self.grid = np.meshgrid(
-                    np.linspace(0, np.pi, self.num_theta),
-                    np.linspace(0, 2 * np.pi, self.num_phi),
-                )
+                theta = np.linspace(0, np.pi, self.num_theta)
+                phi = np.linspace(0, 2 * np.pi, self.num_phi, endpoint=False)
+                self.grid = np.meshgrid(theta, phi, indexing="ij")
 
                 theta, phi = self.grid
         else:
-            theta = coords[:, 0].view(-1, 1)
-            phi = coords[:, 1].view(-1, 1)
+            theta = coords[:, 0].detach().cpu().numpy().reshape(-1, 1)
+            phi = coords[:, 1].detach().cpu().numpy().reshape(-1, 1)
 
         irreps = np.arange(self.L + 1)
         ls = [[ls] * (2 * ls + 1) for ls in irreps]
-        ls = np.array(
-            [ll for sublist in ls for ll in sublist]
-        )  # 0, 1, 1, 1, 2, 2, 2, 2, 2, ...
+        ls = np.array([ll for sublist in ls for ll in sublist])  # 0, 1, 1, 1, 2, 2, 2, 2, 2, ...
 
         ms = [list(range(-ls, ls + 1)) for ls in irreps]
-        ms = np.array(
-            [mm for sublist in ms for mm in sublist]
-        )  # 0, -1, 0, 1, -2, -1, 0, 1, 2, ...
+        ms = np.array([mm for sublist in ms for mm in sublist])  # 0, -1, 0, 1, -2, -1, 0, 1, 2, ...
 
-        Y = spherical_harmonics.sh(
+        Y = spherical_harmonics_sh(
             ls[:, None, None],
             ms[:, None, None],
             theta[None, :, :],
             phi[None, :, :],
-            field="real",
-            normalization="quantum",
-            condon_shortley=True,
+            field=self.field,
+            normalization=self.normalization,
+            condon_shortley=self.condon_shortley,
         )
 
-        return torch.tensor(Y).float()
+        if self.field == "real":
+            Y = Y.real
+            return torch.tensor(Y).float()
+        else:
+            return torch.tensor(Y).to(torch.complex64)
 
-    def forward(self, w: torch.Tensor, coords: torch.Tensor = None) -> torch.Tensor:
+    def forward(self, w: torch.Tensor, coords: torch.Tensor | None = None) -> torch.Tensor:
         B = w.size(0)
         R = w.size(1)
 
@@ -87,22 +97,23 @@ class SphericalHarmonics(HarmonicFunction):
             Y = Y.permute(1, 0, 2).unsqueeze(3)
             Y = Y.to(w.device)
         else:
-            Y = self.Y.unsqueeze(0)
+            basis = cast(torch.Tensor, self.Y)
+            Y = basis.unsqueeze(0)
             Y = Y.expand(B, Y.size(1), Y.size(2), Y.size(3))
 
-        out = torch.zeros((B, self.num_phi, self.num_theta, self.L, R), device=w.device)
+        out = torch.zeros((B, self.num_theta, self.num_phi, self.L, R), device=w.device)
         li = 0
         for l in range(self.L):
             if l == 0:
-                w_l = w[:, 0:1]
+                w_l = w[:, :, 0:1]
                 Y_l = Y[:, 0:1, :, :]
             else:
-                w_l = w[:, li : (l + 1) ** 2]
+                w_l = w[:, :, li : (l + 1) ** 2]
                 Y_l = Y[:, li : (l + 1) ** 2, :, :]
-            out[:, :, :, self.L, :] = torch.einsum("brn,brncd->bcdr", w_l, Y_l)
+            out[:, :, :, l, :] = torch.einsum("brn,bncd->bcdr", w_l, Y_l)
             li = (l + 1) ** 2
 
         out = self.mlp(out.flatten(start_dim=-2))
-        out = out.view(B, self.num_phi, self.num_theta, self.L).sum(-1)
+        out = out.view(B, self.num_theta, self.num_phi, self.L).sum(-1)
 
         return out

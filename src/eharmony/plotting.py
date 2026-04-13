@@ -145,6 +145,8 @@ def plot_spherical_fn(
     central_longitude: int = 20,
     central_latitude: int = 20,
     colorbar: bool = True,
+    theta: npt.NDArray | None = None,
+    phi: npt.NDArray | None = None,
     **kwargs,
 ):
     import cartopy
@@ -157,9 +159,23 @@ def plot_spherical_fn(
 
     nlon = data.shape[-1]
     nlat = data.shape[-2]
-    lon = np.linspace(0, 2 * np.pi, nlon)
-    lat = np.linspace(-np.pi / 2.0, np.pi / 2.0, nlat)
-    Lon, Lat = np.meshgrid(lon, lat)
+
+    if theta is None:
+        theta = np.linspace(0, np.pi, nlat)
+    if phi is None:
+        phi = np.linspace(0, 2 * np.pi, nlon, endpoint=False)
+
+    theta = np.asarray(theta)
+    phi = np.asarray(phi)
+    if theta.ndim == 2:
+        theta = theta[:, 0]
+    if phi.ndim == 2:
+        phi = phi[0, :]
+
+    # Input data is indexed by colatitude theta [0, pi].
+    # Cartopy expects geographic latitude in [-pi/2, pi/2].
+    lat = (np.pi / 2.0) - theta
+    Lon, Lat = np.meshgrid(phi, lat, indexing="xy")
 
     Lon = Lon * 180 / np.pi
     Lat = Lat * 180 / np.pi

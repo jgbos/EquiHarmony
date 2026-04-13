@@ -1,11 +1,13 @@
 """spherical_harmonics.py"""
 
+from typing import cast
+
 import numpy as np
 import torch
-from lie_learn.representations.SO3 import spherical_harmonics
 from lie_learn.spaces import S2
 
 from eharmony.harmonic_function import HarmonicFunction
+from eharmony.spherical_harmonics_backend import sh as spherical_harmonics_sh
 
 
 class SphericalHarmonics(HarmonicFunction):
@@ -44,7 +46,7 @@ class SphericalHarmonics(HarmonicFunction):
         Y = self.generate_basis_fns()
         self.register_buffer("Y", Y, persistent=False)
 
-    def generate_basis_fns(self, coords: torch.Tensor = None) -> torch.Tensor:
+    def generate_basis_fns(self, coords: torch.Tensor | None = None) -> torch.Tensor:
         if coords is None:
             if self.grid_type == "lie_learn":
                 self.grid = S2.meshgrid(self.num_theta, grid_type="Driscoll-Healy")
@@ -53,15 +55,14 @@ class SphericalHarmonics(HarmonicFunction):
 
                 theta, phi = self.grid
             else:
-                self.grid = np.meshgrid(
-                    np.linspace(0, np.pi, self.num_theta),
-                    np.linspace(0, 2 * np.pi, self.num_phi),
-                )
+                theta = np.linspace(0, np.pi, self.num_theta)
+                phi = np.linspace(0, 2 * np.pi, self.num_phi, endpoint=False)
+                self.grid = np.meshgrid(theta, phi, indexing="ij")
 
                 theta, phi = self.grid
         else:
-            theta = coords[:, 0].view(-1, 1)
-            phi = coords[:, 1].view(-1, 1)
+            theta = coords[:, 0].detach().cpu().numpy().reshape(-1, 1)
+            phi = coords[:, 1].detach().cpu().numpy().reshape(-1, 1)
 
         irreps = np.arange(self.L + 1)
         ls = [[ls] * (2 * ls + 1) for ls in irreps]
@@ -70,7 +71,7 @@ class SphericalHarmonics(HarmonicFunction):
         ms = [list(range(-ls, ls + 1)) for ls in irreps]
         ms = np.array([mm for sublist in ms for mm in sublist])  # 0, -1, 0, 1, -2, -1, 0, 1, 2, ...
 
-        Y = spherical_harmonics.sh(
+        Y = spherical_harmonics_sh(
             ls[:, None, None],
             ms[:, None, None],
             theta[None, :, :],
@@ -87,7 +88,7 @@ class SphericalHarmonics(HarmonicFunction):
 
         return Y
 
-    def forward(self, w: torch.Tensor, coords: torch.Tensor = None) -> torch.Tensor:
+    def forward(self, w: torch.Tensor, coords: torch.Tensor | None = None) -> torch.Tensor:
         B, R, _ = w.shape
 
         if coords is not None:
@@ -95,7 +96,8 @@ class SphericalHarmonics(HarmonicFunction):
             Y = Y.permute(1, 0, 2).unsqueeze(3).unsqueeze(1)
             Y = Y.to(w.device)
         else:
-            Y = self.Y.view(1, 1, *self.Y.shape)
+            basis = cast(torch.Tensor, self.Y)
+            Y = basis.unsqueeze(0).unsqueeze(0)
             Y = Y.expand(B, R, Y.size(2), Y.size(3), Y.size(4))
 
         out = torch.einsum("brn,brncd->brncd", w, Y).sum(2)
