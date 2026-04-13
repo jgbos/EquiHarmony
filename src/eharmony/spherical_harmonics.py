@@ -4,10 +4,11 @@ from typing import cast
 
 import numpy as np
 import torch
-from lie_learn.spaces import S2
 
 from eharmony.harmonic_function import HarmonicFunction
 from eharmony.spherical_harmonics_backend import sh as spherical_harmonics_sh
+
+from .meshgrid import meshgrid
 
 
 class SphericalHarmonics(HarmonicFunction):
@@ -49,7 +50,7 @@ class SphericalHarmonics(HarmonicFunction):
     def generate_basis_fns(self, coords: torch.Tensor | None = None) -> torch.Tensor:
         if coords is None:
             if self.grid_type == "lie_learn":
-                self.grid = S2.meshgrid(self.num_theta, grid_type="Driscoll-Healy")
+                self.grid = meshgrid(self.num_theta, grid_type="Driscoll-Healy")
                 self.num_theta = self.grid[0].shape[0]
                 self.num_phi = self.grid[0].shape[1]
 

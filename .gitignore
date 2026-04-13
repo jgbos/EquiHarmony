@@ -1,6 +1,7 @@
 .venv
 uv.lock
 .python-version
+.vscode
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

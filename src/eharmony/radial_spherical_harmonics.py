@@ -1,10 +1,11 @@
-""" spherical_harmonics.py  """
+"""spherical_harmonics.py"""
 
 import numpy as np
 import torch
-from lie_learn.representations.SO3 import spherical_harmonics
 
 from eharmony.harmonic_function import HarmonicFunction
+
+from .spherical_harmonics_backend import sh as spherical_harmonics_sh
 
 
 class RadialSphericalHarmonics(HarmonicFunction):
@@ -42,16 +43,12 @@ class RadialSphericalHarmonics(HarmonicFunction):
 
         irreps = np.arange(self.L + 1)
         ls = [[ls] * (2 * ls + 1) for ls in irreps]
-        ls = np.array(
-            [ll for sublist in ls for ll in sublist]
-        )  # 0, 1, 1, 1, 2, 2, 2, 2, 2, ...
+        ls = np.array([ll for sublist in ls for ll in sublist])  # 0, 1, 1, 1, 2, 2, 2, 2, 2, ...
 
         ms = [list(range(-ls, ls + 1)) for ls in irreps]
-        ms = np.array(
-            [mm for sublist in ms for mm in sublist]
-        )  # 0, -1, 0, 1, -2, -1, 0, 1, 2, ...
+        ms = np.array([mm for sublist in ms for mm in sublist])  # 0, -1, 0, 1, -2, -1, 0, 1, 2, ...
 
-        Y = spherical_harmonics.sh(
+        Y = spherical_harmonics_sh(
             ls[:, None, None],
             ms[:, None, None],
             beta[None, :, :],
